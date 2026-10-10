@@ -14,6 +14,8 @@ The contacts screen built into LightOS shows one number per contact. Rolodex sho
 
 *Screenshots from a Light Phone III, using made-up demo contacts.*
 
+**[Download the latest APK](https://github.com/jmsbrain/Rolodex/releases/latest)**, then follow [Install on the Light Phone III](#install-on-the-light-phone-iii).
+
 ## Features
 
 ### Browse
@@ -102,11 +104,13 @@ The APK is written to `app\build\outputs\apk\debug\app-debug.apk`.
 
 ## Install on the Light Phone III
 
-1. On the phone, turn on Developer options and USB debugging, then connect it by USB.
-2. Install, or update over an existing install:
+1. Download `Rolodex-<version>.apk` from the [latest release](https://github.com/jmsbrain/Rolodex/releases/latest), or [build it yourself](#build).
+2. On the phone, turn on Developer options and USB debugging, then connect it by USB.
+3. Install, or update over an existing install:
    ```bash
-   adb install -r app\build\outputs\apk\debug\app-debug.apk
+   adb install -r Rolodex-1.5.1.apk
    ```
+   Use the file name you downloaded. For your own build, it's `app\build\outputs\apk\debug\app-debug.apk`.
 3. Open Rolodex and allow Contacts access. If no prompt appears, grant it from the computer:
    ```bash
    adb shell pm grant com.jms.fullcontacts android.permission.READ_CONTACTS
@@ -121,7 +125,7 @@ The APK is written to `app\build\outputs\apk\debug\app-debug.apk`.
 
 ## Versions
 
-Versions follow **MAJOR.MINOR.PATCH**: MINOR goes up for new features, and PATCH for fixes and tweaks. Each release is tagged `vX.Y.Z`.
+Versions follow **MAJOR.MINOR.PATCH**: MINOR goes up for new features, and PATCH for fixes and tweaks. Each release is tagged `vX.Y.Z`. Downloadable APKs are on the [Releases page](https://github.com/jmsbrain/Rolodex/releases), from 1.5.1 on.
 
 | Version | Changes |
 |---|---|
