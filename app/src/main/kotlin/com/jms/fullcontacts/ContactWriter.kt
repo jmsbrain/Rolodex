@@ -114,20 +114,15 @@ data class DraftItem(
     val label: String?,
     val value: String,
 ) {
-    private fun matches(kind: EditKind, o: TypeOption) =
+    fun isOption(kind: EditKind, o: TypeOption) =
         o.type == type && if (o.label == null) type != kind.customType else o.label.equals(label, ignoreCase = true)
 
     fun typeName(kind: EditKind): String =
-        kind.options.firstOrNull { matches(kind, it) }?.name
+        kind.options.firstOrNull { isOption(kind, it) }?.name
             ?: label?.uppercase(Locale.getDefault())
             ?: "OTHER"
 
-    /** The next option in [EditKind.options]; anything not in the list cycles to the first one. */
-    fun nextType(kind: EditKind): DraftItem {
-        val i = kind.options.indexOfFirst { matches(kind, it) }
-        val next = kind.options[(i + 1) % kind.options.size]
-        return copy(type = next.type, label = next.label)
-    }
+    fun withOption(o: TypeOption): DraftItem = copy(type = o.type, label = o.label)
 
     companion object {
         fun new(key: Long, kind: EditKind) =

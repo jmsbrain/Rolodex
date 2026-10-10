@@ -9,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -56,6 +58,22 @@ private const val BASELINE_PX = 600f
 
 /** Makes all text this much bigger than LightOS's standard sizes. Tweak to taste. */
 const val TEXT_SCALE = 1.2f
+
+/** The contact list's text is a little bigger than the rest of the app. */
+const val LIST_TEXT_SCALE = 1.3f
+
+/** Rescales a style from [TEXT_SCALE] to [LIST_TEXT_SCALE]. */
+fun TextStyle.forList(): TextStyle = copy(
+    fontSize = fontSize * (LIST_TEXT_SCALE / TEXT_SCALE),
+    lineHeight = lineHeight * (LIST_TEXT_SCALE / TEXT_SCALE),
+)
+
+/** A real-world distance on this screen, using the display's reported pixels per inch. */
+@Composable
+fun physicalInches(inches: Float): Dp {
+    val ydpi = LocalContext.current.resources.displayMetrics.ydpi
+    return with(LocalDensity.current) { (inches * ydpi).toDp() }
+}
 
 @Composable
 fun designSp(px: Float): TextUnit {

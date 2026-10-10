@@ -1,7 +1,17 @@
 package com.jms.fullcontacts
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -250,14 +260,7 @@ private fun ItemsSection(
             Row(Modifier.fillMaxWidth().padding(top = designDp(6f)), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
                     if (kind.options.isNotEmpty()) {
-                        // Tap to cycle MOBILE → HOME → WORK → OTHER (etc.).
-                        BasicText(
-                            item.typeName(kind),
-                            style = labelStyle().copy(color = LightStyle.content, textDecoration = TextDecoration.Underline),
-                            modifier = Modifier
-                                .flatClickable { replace(item.nextType(kind)) }
-                                .padding(vertical = designDp(4f)),
-                        )
+                        TypeDropdown(kind, item) { replace(item.withOption(it)) }
                     }
                     EditField(
                         value = item.value,
@@ -282,6 +285,74 @@ private fun ItemsSection(
     }
     TextButton(kind.addLabel) {
         set(items + DraftItem.new(newKey(), kind))
+    }
+}
+
+/** The type label (MOBILE, HOME, …) with a ▾; tapping it opens a list of choices. */
+@Composable
+private fun TypeDropdown(kind: EditKind, item: DraftItem, onSelect: (TypeOption) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    var labelHeight by remember { mutableIntStateOf(0) }
+    val style = labelStyle().copy(color = LightStyle.content)
+
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .onSizeChanged { labelHeight = it.height }
+                .flatClickable { expanded = true }
+                .padding(vertical = designDp(4f)),
+        ) {
+            BasicText(item.typeName(kind), style = style)
+            Spacer(Modifier.width(designDp(8f)))
+            // A drawn ▾ so it doesn't depend on the font having the glyph.
+            Canvas(Modifier.size(width = designDp(10f), height = designDp(6f))) {
+                drawPath(
+                    Path().apply {
+                        moveTo(0f, 0f)
+                        lineTo(size.width, 0f)
+                        lineTo(size.width / 2f, size.height)
+                        close()
+                    },
+                    LightStyle.content,
+                )
+            }
+        }
+
+        if (expanded) {
+            Popup(
+                alignment = Alignment.TopStart,
+                offset = IntOffset(0, labelHeight),
+                onDismissRequest = { expanded = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Column(
+                    Modifier
+                        .background(LightStyle.background)
+                        .border(1.dp, LightStyle.content)
+                        .heightIn(max = designDp(320f))
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = designDp(16f), vertical = designDp(6f)),
+                ) {
+                    kind.options.forEach { option ->
+                        val selected = item.isOption(kind, option)
+                        BasicText(
+                            option.name,
+                            style = buttonStyle().copy(
+                                color = if (selected) LightStyle.content else LightStyle.secondary,
+                                textDecoration = if (selected) TextDecoration.Underline else TextDecoration.None,
+                            ),
+                            modifier = Modifier
+                                .flatClickable {
+                                    expanded = false
+                                    onSelect(option)
+                                }
+                                .padding(vertical = designDp(8f)),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

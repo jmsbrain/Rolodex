@@ -243,7 +243,7 @@ private fun ContactListScreen(
             Spacer(Modifier.width(designDp(20f)))
             TextButton("ADD", onClick = onAdd)
         }
-        Spacer(Modifier.height(designDp(12f)))
+        Spacer(Modifier.height(physicalInches(0.2f)))
 
         when {
             contacts == null -> BasicText("Loading…", style = paragraphStyle().copy(color = LightStyle.secondary))
@@ -253,7 +253,7 @@ private fun ContactListScreen(
                 items(filtered, key = { it.id }) { contact ->
                     BasicText(
                         text = contact.name,
-                        style = copyStyle(),
+                        style = copyStyle().forList(),
                         maxLines = 1,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -269,7 +269,7 @@ private fun ContactListScreen(
 
 @Composable
 private fun SearchField(query: String, onChange: (String) -> Unit) {
-    val style = paragraphStyle()
+    val style = paragraphStyle().forList()
     Column {
         BasicTextField(
             value = query,
@@ -359,8 +359,6 @@ private fun ContactDetailScreen(
                         Spacer(Modifier.height(designDp(4f)))
                         section.entries.forEach { EntryRow(it, activity) }
                     }
-                    Spacer(Modifier.height(designDp(32f)))
-                    BasicText("Long-press anything to copy it.", style = labelStyle())
                     Spacer(Modifier.height(designDp(40f)))
                 }
                 loaded -> BasicText("This contact no longer exists.", style = paragraphStyle())
