@@ -123,6 +123,9 @@ The APK is written to `app\build\outputs\apk\debug\app-debug.apk`.
    adb shell am start -n com.jms.fullcontacts/.MainActivity
    ```
 
+<!--
+Version history: kept in this file but hidden on the GitHub page.
+
 ## Versions
 
 Versions follow **MAJOR.MINOR.PATCH**: MINOR goes up for new features, and PATCH for fixes and tweaks. Each release is tagged `vX.Y.Z`. Downloadable APKs are on the [Releases page](https://github.com/jmsbrain/Rolodex/releases), from 1.5.1 on.
@@ -137,6 +140,7 @@ Versions follow **MAJOR.MINOR.PATCH**: MINOR goes up for new features, and PATCH
 | 1.4.0 | Every field editable; new contacts save to the synced account |
 | 1.3.0 | Edit, add and delete contacts |
 | 1.2.0 | Contacts viewer |
+-->
 
 ## Project layout
 
