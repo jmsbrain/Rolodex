@@ -50,18 +50,20 @@ private enum class EditorMode { Editing, ConfirmDiscard, ConfirmDelete, Busy }
 
 /**
  * Edits an existing contact, or creates one when [contactId] is null.
+ * [prefill] (from another app or a .vcf file) is filled in on top, unsaved.
  * Nothing is written until SAVE.
  */
 @Composable
 fun ContactEditorScreen(
-    activity: MainActivity,
+    activity: RolodexActivity,
     contactId: Long?,
     onCancel: () -> Unit,
     onSaved: (contactId: Long?) -> Unit,
     onDeleted: () -> Unit,
+    prefill: Prefill? = null,
 ) {
     var original by remember(contactId) { mutableStateOf(if (contactId == null) ContactDraft.blank() else null) }
-    var draft by remember(contactId) { mutableStateOf(original) }
+    var draft by remember(contactId) { mutableStateOf(original?.let { prefill?.applyTo(it) ?: it }) }
     var missing by remember(contactId) { mutableStateOf(false) }
     var mode by remember { mutableStateOf(EditorMode.Editing) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -74,7 +76,7 @@ fun ContactEditorScreen(
             runCatching { activity.writer.loadDraft(contactId) }.getOrNull()
         }
         original = loaded
-        draft = loaded
+        draft = loaded?.let { prefill?.applyTo(it) ?: it }
         missing = loaded == null
     }
 
@@ -326,31 +328,14 @@ private fun TypeDropdown(kind: EditKind, item: DraftItem, onSelect: (TypeOption)
                 onDismissRequest = { expanded = false },
                 properties = PopupProperties(focusable = true),
             ) {
-                Column(
-                    Modifier
-                        .background(LightStyle.background)
-                        .border(1.dp, LightStyle.content)
-                        .heightIn(max = designDp(320f))
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = designDp(16f), vertical = designDp(6f)),
-                ) {
-                    kind.options.forEach { option ->
-                        val selected = item.isOption(kind, option)
-                        BasicText(
-                            option.name,
-                            style = buttonStyle().copy(
-                                color = if (selected) LightStyle.content else LightStyle.secondary,
-                                textDecoration = if (selected) TextDecoration.Underline else TextDecoration.None,
-                            ),
-                            modifier = Modifier
-                                .flatClickable {
-                                    expanded = false
-                                    onSelect(option)
-                                }
-                                .padding(vertical = designDp(8f)),
-                        )
-                    }
-                }
+                MenuList(
+                    kind.options.map { option ->
+                        MenuItem(option.name, selected = item.isOption(kind, option)) {
+                            expanded = false
+                            onSelect(option)
+                        }
+                    },
+                )
             }
         }
     }

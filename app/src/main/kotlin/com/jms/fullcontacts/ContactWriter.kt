@@ -481,7 +481,7 @@ class ContactWriter(
         }
 
         /** "yyyy-MM-dd" → "MM/dd/yyyy" and "--MM-dd" → "MM/dd"; anything else is shown as stored. */
-        private fun dateForEditing(raw: String): String = try {
+        internal fun dateForEditing(raw: String): String = try {
             if (raw.startsWith("--")) {
                 MonthDay.parse(raw).format(DateTimeFormatter.ofPattern("MM/dd"))
             } else {
@@ -492,7 +492,7 @@ class ContactWriter(
         }
 
         /** Reads M/D/YYYY or M/D (also with - or .), or the stored forms; null if it isn't a real date. */
-        private fun dateForStorage(input: String): String? {
+        internal fun dateForStorage(input: String): String? {
             Regex("""(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{4}))?""").matchEntire(input)?.let { m ->
                 val month = m.groupValues[1].toInt()
                 val day = m.groupValues[2].toInt()

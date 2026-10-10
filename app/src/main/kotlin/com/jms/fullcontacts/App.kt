@@ -8,6 +8,12 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.geometry.Offset
@@ -50,7 +56,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun App(
-    activity: MainActivity,
+    activity: RolodexActivity,
     hasPermission: Boolean,
     refreshKey: Int,
     onPermissionResult: (Boolean) -> Unit,
@@ -74,7 +80,7 @@ fun App(
 
 @Composable
 private fun MainContent(
-    activity: MainActivity,
+    activity: RolodexActivity,
     refreshKey: Int,
     openContactId: Long?,
     onOpenContactConsumed: () -> Unit,
@@ -182,7 +188,7 @@ private fun MainContent(
 // ---- Permission ---------------------------------------------------------------------
 
 @Composable
-private fun PermissionScreen(activity: MainActivity, onResult: (Boolean) -> Unit) {
+fun PermissionScreen(activity: RolodexActivity, onResult: (Boolean) -> Unit) {
     var deniedForGood by remember { mutableStateOf(false) }
     val permissions = arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
@@ -221,14 +227,16 @@ private fun PermissionScreen(activity: MainActivity, onResult: (Boolean) -> Unit
 
 // ---- List ---------------------------------------------------------------------------
 
+/** The searchable list of names. Also used when another app asks to pick a contact. */
 @Composable
-private fun ContactListScreen(
+fun ContactListScreen(
     contacts: List<ContactSummary>?,
     query: String,
     onQueryChange: (String) -> Unit,
     listState: LazyListState,
     onOpen: (Long) -> Unit,
-    onAdd: () -> Unit,
+    onAdd: (() -> Unit)?,
+    addLabel: String = "ADD",
 ) {
     val filtered = remember(contacts, query) {
         val q = query.trim()
@@ -240,8 +248,10 @@ private fun ContactListScreen(
         Spacer(Modifier.height(designDp(16f)))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { SearchField(query, onQueryChange) }
-            Spacer(Modifier.width(designDp(20f)))
-            TextButton("ADD", onClick = onAdd)
+            if (onAdd != null) {
+                Spacer(Modifier.width(designDp(20f)))
+                TextButton(addLabel, onClick = onAdd)
+            }
         }
         Spacer(Modifier.height(physicalInches(0.1f)))
 
@@ -268,7 +278,7 @@ private fun ContactListScreen(
 }
 
 @Composable
-private fun SearchField(query: String, onChange: (String) -> Unit) {
+fun SearchField(query: String, onChange: (String) -> Unit) {
     val style = paragraphStyle().forList()
     Column {
         BasicTextField(
@@ -316,7 +326,7 @@ fun ClearButton(onClick: () -> Unit) {
 
 @Composable
 private fun ContactDetailScreen(
-    activity: MainActivity,
+    activity: RolodexActivity,
     contactId: Long,
     refreshKey: Int,
     onBack: () -> Unit,
@@ -337,7 +347,17 @@ private fun ContactDetailScreen(
         Row(Modifier.fillMaxWidth().padding(horizontal = designDp(24f), vertical = designDp(12f))) {
             TextButton("BACK", onClick = onBack)
             Spacer(Modifier.weight(1f))
-            if (d != null) TextButton("EDIT", onClick = onEdit)
+            if (d != null) {
+                MenuButton(
+                    "SHARE",
+                    listOf(
+                        "AS TEXT" to { activity.shareAsText(d.name, d.asShareText()) },
+                        "AS CONTACT FILE (.VCF)" to { activity.shareAsVcf(d.id) },
+                    ),
+                )
+                Spacer(Modifier.width(designDp(24f)))
+                TextButton("EDIT", onClick = onEdit)
+            }
         }
 
         Column(
@@ -370,7 +390,7 @@ private fun ContactDetailScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun EntryRow(entry: Entry, activity: MainActivity) {
+private fun EntryRow(entry: Entry, activity: RolodexActivity) {
     val onTap: (() -> Unit)? = when (entry.kind) {
         EntryKind.Phone -> { { activity.dial(entry.target) } }
         EntryKind.Email -> { { activity.copy(entry.value) } }
@@ -408,6 +428,53 @@ private fun EntryRow(entry: Entry, activity: MainActivity) {
 }
 
 // ---- Shared -------------------------------------------------------------------------
+
+/** A text button that opens a small list of choices below it. */
+@Composable
+fun MenuButton(label: String, items: List<Pair<String, () -> Unit>>) {
+    var expanded by remember { mutableStateOf(false) }
+    var height by remember { mutableIntStateOf(0) }
+    Box {
+        Box(Modifier.onSizeChanged { height = it.height }) {
+            TextButton(label) { expanded = true }
+        }
+        if (expanded) {
+            Popup(
+                alignment = Alignment.TopEnd,
+                offset = IntOffset(0, height),
+                onDismissRequest = { expanded = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                MenuList(items.map { (text, action) -> MenuItem(text, selected = true) { expanded = false; action() } })
+            }
+        }
+    }
+}
+
+class MenuItem(val text: String, val selected: Boolean, val onClick: () -> Unit)
+
+/** The bordered black box used by dropdowns and menus. */
+@Composable
+fun MenuList(items: List<MenuItem>) {
+    Column(
+        Modifier
+            .background(LightStyle.background)
+            .border(1.dp, LightStyle.content)
+            .heightIn(max = designDp(320f))
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = designDp(16f), vertical = designDp(6f)),
+    ) {
+        items.forEach { item ->
+            BasicText(
+                item.text,
+                style = buttonStyle().copy(color = if (item.selected) LightStyle.content else LightStyle.secondary),
+                modifier = Modifier
+                    .flatClickable(item.onClick)
+                    .padding(vertical = designDp(8f)),
+            )
+        }
+    }
+}
 
 @Composable
 fun TextButton(label: String, onClick: () -> Unit) {
