@@ -196,21 +196,29 @@ private fun EditorFields(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = designDp(24f)),
     ) {
+        val words = KeyboardCapitalization.Words
         SectionTitle("NAME", first = true)
-        EditField(draft.first, "First", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(first = it)) }
-        EditField(draft.middle, "Middle", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(middle = it)) }
-        EditField(draft.last, "Last", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(last = it)) }
+        EditField(draft.prefix, "Prefix (Dr., Rev.…)", capitalization = words) { onChange(draft.copy(prefix = it)) }
+        EditField(draft.first, "First", capitalization = words) { onChange(draft.copy(first = it)) }
+        EditField(draft.middle, "Middle", capitalization = words) { onChange(draft.copy(middle = it)) }
+        EditField(draft.last, "Last", capitalization = words) { onChange(draft.copy(last = it)) }
+        EditField(draft.suffix, "Suffix (Jr., PhD…)", capitalization = words) { onChange(draft.copy(suffix = it)) }
 
         ItemsSection(EditKind.PHONES, draft, onChange, newKey)
         ItemsSection(EditKind.ADDRESSES, draft, onChange, newKey)
 
         SectionTitle("WORK")
-        EditField(draft.company, "Company", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(company = it)) }
-        EditField(draft.title, "Title", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(title = it)) }
+        EditField(draft.company, "Company", capitalization = words) { onChange(draft.copy(company = it)) }
+        EditField(draft.title, "Title", capitalization = words) { onChange(draft.copy(title = it)) }
+        EditField(draft.department, "Department", capitalization = words) { onChange(draft.copy(department = it)) }
 
         ItemsSection(EditKind.NICKNAMES, draft, onChange, newKey)
-        ItemsSection(EditKind.DATES, draft, onChange, newKey)
+        ItemsSection(EditKind.RELATIONS, draft, onChange, newKey)
+        ItemsSection(EditKind.MESSAGING, draft, onChange, newKey)
+        ItemsSection(EditKind.SIP, draft, onChange, newKey)
+        ItemsSection(EditKind.EMAILS, draft, onChange, newKey)
         ItemsSection(EditKind.WEBSITES, draft, onChange, newKey)
+        ItemsSection(EditKind.DATES, draft, onChange, newKey)
         ItemsSection(EditKind.NOTES, draft, onChange, newKey)
 
         footer()
@@ -241,7 +249,7 @@ private fun ItemsSection(
         key(item.key) {
             Row(Modifier.fillMaxWidth().padding(top = designDp(6f)), verticalAlignment = Alignment.Bottom) {
                 Column(Modifier.weight(1f)) {
-                    if (kind.types.isNotEmpty()) {
+                    if (kind.options.isNotEmpty()) {
                         // Tap to cycle MOBILE → HOME → WORK → OTHER (etc.).
                         BasicText(
                             item.typeName(kind),
@@ -257,11 +265,12 @@ private fun ItemsSection(
                         singleLine = kind != EditKind.ADDRESSES && kind != EditKind.NOTES,
                         keyboardType = when (kind) {
                             EditKind.PHONES -> KeyboardType.Phone
+                            EditKind.EMAILS, EditKind.SIP -> KeyboardType.Email
                             EditKind.WEBSITES -> KeyboardType.Uri
                             else -> KeyboardType.Text
                         },
                         capitalization = when (kind) {
-                            EditKind.ADDRESSES, EditKind.NICKNAMES -> KeyboardCapitalization.Words
+                            EditKind.ADDRESSES, EditKind.NICKNAMES, EditKind.RELATIONS -> KeyboardCapitalization.Words
                             EditKind.NOTES -> KeyboardCapitalization.Sentences
                             else -> KeyboardCapitalization.None
                         },
@@ -272,7 +281,7 @@ private fun ItemsSection(
         }
     }
     TextButton(kind.addLabel) {
-        set(items + DraftItem(newKey(), emptyList(), kind.defaultType, null, ""))
+        set(items + DraftItem.new(newKey(), kind))
     }
 }
 
