@@ -36,6 +36,8 @@ class MainActivity : ComponentActivity() {
 
     lateinit var repository: ContactsRepository
         private set
+    lateinit var writer: ContactWriter
+        private set
 
     private val scope = MainScope()
     private val lightOs = LightOsBridge(this)
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = ContactsRepository(contentResolver, resources)
+        writer = ContactWriter(contentResolver, resources)
         hasPermission = checkPermission()
         setContent {
             App(
@@ -128,6 +131,14 @@ class MainActivity : ComponentActivity() {
 
     fun canAskForPermission(): Boolean =
         shouldShowRequestPermissionRationale(Manifest.permission.READ_CONTACTS)
+
+    fun canWrite(): Boolean =
+        checkSelfPermission(Manifest.permission.WRITE_CONTACTS) == PackageManager.PERMISSION_GRANTED
+
+    fun canAskForWritePermission(): Boolean =
+        shouldShowRequestPermissionRationale(Manifest.permission.WRITE_CONTACTS)
+
+    fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
     // ---- Actions on contact entries -------------------------------------------------
 

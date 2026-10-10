@@ -1,0 +1,308 @@
+package com.jms.fullcontacts
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private enum class EditorMode { Editing, ConfirmDiscard, ConfirmDelete, Busy }
+
+/**
+ * Edits an existing contact, or creates one when [contactId] is null.
+ * Nothing is written until SAVE.
+ */
+@Composable
+fun ContactEditorScreen(
+    activity: MainActivity,
+    contactId: Long?,
+    onCancel: () -> Unit,
+    onSaved: (contactId: Long?) -> Unit,
+    onDeleted: () -> Unit,
+) {
+    var original by remember(contactId) { mutableStateOf(if (contactId == null) ContactDraft.blank() else null) }
+    var draft by remember(contactId) { mutableStateOf(original) }
+    var missing by remember(contactId) { mutableStateOf(false) }
+    var mode by remember { mutableStateOf(EditorMode.Editing) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var nextKey by remember { mutableLongStateOf(-2L) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(contactId) {
+        if (contactId == null) return@LaunchedEffect
+        val loaded = withContext(Dispatchers.IO) {
+            runCatching { activity.writer.loadDraft(contactId) }.getOrNull()
+        }
+        original = loaded
+        draft = loaded
+        missing = loaded == null
+    }
+
+    val dirty = draft != original
+
+    fun cancel() {
+        if (dirty) mode = EditorMode.ConfirmDiscard else onCancel()
+    }
+
+    fun save() {
+        val o = original ?: return
+        val d = draft ?: return
+        if (!dirty) {
+            if (contactId == null) onCancel() else onSaved(contactId)
+            return
+        }
+        ContactWriter.unreadableDates(o, d).firstOrNull()?.let {
+            error = "Can't read the date \"$it\". Use MM/DD/YYYY, or MM/DD without a year."
+            return
+        }
+        mode = EditorMode.Busy
+        scope.launch {
+            withContext(Dispatchers.IO) { runCatching { activity.writer.save(o, d) } }
+                .onSuccess { onSaved(it ?: contactId) }
+                .onFailure {
+                    mode = EditorMode.Editing
+                    error = "Couldn't save this contact."
+                }
+        }
+    }
+
+    fun delete() {
+        val id = contactId ?: return
+        mode = EditorMode.Busy
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { runCatching { activity.writer.delete(id) }.getOrDefault(false) }
+            if (ok) {
+                onDeleted()
+            } else {
+                mode = EditorMode.Editing
+                error = "Couldn't delete this contact."
+            }
+        }
+    }
+
+    BackHandler {
+        when (mode) {
+            EditorMode.Editing -> cancel()
+            EditorMode.ConfirmDiscard, EditorMode.ConfirmDelete -> mode = EditorMode.Editing
+            EditorMode.Busy -> Unit
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = designDp(24f), vertical = designDp(12f))) {
+            when (mode) {
+                EditorMode.ConfirmDiscard -> {
+                    BasicText("Discard your changes?", style = paragraphStyle())
+                    Row {
+                        TextButton("DISCARD", onClick = onCancel)
+                        Spacer(Modifier.width(designDp(32f)))
+                        TextButton("KEEP EDITING") { mode = EditorMode.Editing }
+                    }
+                }
+                EditorMode.Busy -> BasicText("Saving…", style = paragraphStyle().copy(color = LightStyle.secondary))
+                else -> Row(Modifier.fillMaxWidth()) {
+                    TextButton("CANCEL") { cancel() }
+                    Spacer(Modifier.weight(1f))
+                    if (draft != null) TextButton("SAVE") { save() }
+                }
+            }
+            error?.let {
+                Spacer(Modifier.height(designDp(8f)))
+                BasicText(it, style = paragraphStyle())
+            }
+        }
+
+        val d = draft
+        when {
+            d != null -> EditorFields(
+                draft = d,
+                onChange = {
+                    draft = it
+                    error = null
+                },
+                newKey = { nextKey.also { nextKey-- } },
+            ) {
+                if (contactId != null) {
+                    Spacer(Modifier.height(designDp(40f)))
+                    if (mode == EditorMode.ConfirmDelete) {
+                        BasicText("Delete this contact from the phone? This can't be undone.", style = paragraphStyle())
+                        Row {
+                            TextButton("DELETE") { delete() }
+                            Spacer(Modifier.width(designDp(32f)))
+                            TextButton("KEEP") { mode = EditorMode.Editing }
+                        }
+                    } else {
+                        TextButton("DELETE CONTACT") {
+                            error = null
+                            mode = EditorMode.ConfirmDelete
+                        }
+                    }
+                }
+            }
+            missing -> BasicText(
+                "This contact no longer exists.",
+                style = paragraphStyle(),
+                modifier = Modifier.padding(horizontal = designDp(24f)),
+            )
+            else -> BasicText(
+                "Loading…",
+                style = paragraphStyle().copy(color = LightStyle.secondary),
+                modifier = Modifier.padding(horizontal = designDp(24f)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditorFields(
+    draft: ContactDraft,
+    onChange: (ContactDraft) -> Unit,
+    newKey: () -> Long,
+    footer: @Composable () -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = designDp(24f)),
+    ) {
+        SectionTitle("NAME", first = true)
+        EditField(draft.first, "First", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(first = it)) }
+        EditField(draft.middle, "Middle", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(middle = it)) }
+        EditField(draft.last, "Last", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(last = it)) }
+
+        ItemsSection(EditKind.PHONES, draft, onChange, newKey)
+        ItemsSection(EditKind.ADDRESSES, draft, onChange, newKey)
+
+        SectionTitle("WORK")
+        EditField(draft.company, "Company", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(company = it)) }
+        EditField(draft.title, "Title", capitalization = KeyboardCapitalization.Words) { onChange(draft.copy(title = it)) }
+
+        ItemsSection(EditKind.NICKNAMES, draft, onChange, newKey)
+        ItemsSection(EditKind.DATES, draft, onChange, newKey)
+        ItemsSection(EditKind.WEBSITES, draft, onChange, newKey)
+        ItemsSection(EditKind.NOTES, draft, onChange, newKey)
+
+        footer()
+        Spacer(Modifier.height(designDp(40f)))
+    }
+}
+
+@Composable
+private fun SectionTitle(title: String, first: Boolean = false) {
+    Spacer(Modifier.height(designDp(if (first) 4f else 28f)))
+    BasicText(title, style = labelStyle())
+}
+
+/** A field that can hold several values (phones, addresses, …), each with a remove X. */
+@Composable
+private fun ItemsSection(
+    kind: EditKind,
+    draft: ContactDraft,
+    onChange: (ContactDraft) -> Unit,
+    newKey: () -> Long,
+) {
+    val items = draft.items[kind].orEmpty()
+    fun set(list: List<DraftItem>) = onChange(draft.copy(items = draft.items + (kind to list)))
+    fun replace(item: DraftItem) = set(items.map { if (it.key == item.key) item else it })
+
+    SectionTitle(kind.title)
+    items.forEach { item ->
+        key(item.key) {
+            Row(Modifier.fillMaxWidth().padding(top = designDp(6f)), verticalAlignment = Alignment.Bottom) {
+                Column(Modifier.weight(1f)) {
+                    if (kind.types.isNotEmpty()) {
+                        // Tap to cycle MOBILE → HOME → WORK → OTHER (etc.).
+                        BasicText(
+                            item.typeName(kind),
+                            style = labelStyle().copy(color = LightStyle.content, textDecoration = TextDecoration.Underline),
+                            modifier = Modifier
+                                .flatClickable { replace(item.nextType(kind)) }
+                                .padding(vertical = designDp(4f)),
+                        )
+                    }
+                    EditField(
+                        value = item.value,
+                        placeholder = kind.placeholder,
+                        singleLine = kind != EditKind.ADDRESSES && kind != EditKind.NOTES,
+                        keyboardType = when (kind) {
+                            EditKind.PHONES -> KeyboardType.Phone
+                            EditKind.WEBSITES -> KeyboardType.Uri
+                            else -> KeyboardType.Text
+                        },
+                        capitalization = when (kind) {
+                            EditKind.ADDRESSES, EditKind.NICKNAMES -> KeyboardCapitalization.Words
+                            EditKind.NOTES -> KeyboardCapitalization.Sentences
+                            else -> KeyboardCapitalization.None
+                        },
+                    ) { replace(item.copy(value = it)) }
+                }
+                ClearButton(onClick = { set(items.filter { it.key != item.key }) })
+            }
+        }
+    }
+    TextButton(kind.addLabel) {
+        set(items + DraftItem(newKey(), emptyList(), kind.defaultType, null, ""))
+    }
+}
+
+@Composable
+private fun EditField(
+    value: String,
+    placeholder: String,
+    singleLine: Boolean = true,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
+    onValueChange: (String) -> Unit,
+) {
+    val style = paragraphStyle()
+    Column(Modifier.fillMaxWidth().padding(vertical = designDp(4f))) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = singleLine,
+            textStyle = style,
+            cursorBrush = SolidColor(LightStyle.content),
+            keyboardOptions = KeyboardOptions(capitalization = capitalization, keyboardType = keyboardType),
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { inner ->
+                Box {
+                    if (value.isEmpty()) BasicText(placeholder, style = style.copy(color = LightStyle.secondary))
+                    inner()
+                }
+            },
+        )
+        Spacer(Modifier.height(designDp(4f)))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(LightStyle.secondary))
+    }
+}

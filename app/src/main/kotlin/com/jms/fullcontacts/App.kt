@@ -8,6 +8,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.foundation.combinedClickable
@@ -78,11 +80,15 @@ private fun MainContent(
     onOpenContactConsumed: () -> Unit,
 ) {
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var editing by rememberSaveable { mutableStateOf(false) }
+    var adding by rememberSaveable { mutableStateOf(false) }
 
     // Another app asked to show a specific contact.
     LaunchedEffect(openContactId) {
         if (openContactId != null) {
             selectedId = openContactId
+            editing = false
+            adding = false
             onOpenContactConsumed()
         }
     }
@@ -90,9 +96,36 @@ private fun MainContent(
     val listState = rememberLazyListState()
     var contacts by remember { mutableStateOf<List<ContactSummary>?>(null) }
 
-    LaunchedEffect(refreshKey) {
+    // Bumped after every save or delete so the list and detail screens reload.
+    var dataVersion by remember { mutableIntStateOf(0) }
+    val reloadKey = refreshKey + dataVersion
+
+    LaunchedEffect(reloadKey) {
         contacts = withContext(Dispatchers.IO) {
             runCatching { activity.repository.loadSummaries() }.getOrDefault(emptyList())
+        }
+    }
+
+    // Editing needs WRITE_CONTACTS, which older installs were never asked for.
+    var afterWriteGranted by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val writeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        val action = afterWriteGranted
+        afterWriteGranted = null
+        when {
+            granted -> action?.invoke()
+            activity.canAskForWritePermission() -> activity.toast("Rolodex needs permission to edit contacts")
+            else -> {
+                activity.toast("Allow Contacts for Rolodex in settings to edit contacts")
+                activity.openAppSettings()
+            }
+        }
+    }
+    fun withWritePermission(action: () -> Unit) {
+        if (activity.canWrite()) {
+            action()
+        } else {
+            afterWriteGranted = action
+            writeLauncher.launch(Manifest.permission.WRITE_CONTACTS)
         }
     }
 
@@ -101,20 +134,47 @@ private fun MainContent(
     }
 
     val id = selectedId
-    if (id == null) {
-        ContactListScreen(
+    when {
+        adding -> ContactEditorScreen(
+            activity = activity,
+            contactId = null,
+            onCancel = { adding = false },
+            onSaved = { newId ->
+                adding = false
+                dataVersion++
+                if (newId != null) selectedId = newId
+            },
+            onDeleted = { adding = false },
+        )
+        id != null && editing -> ContactEditorScreen(
+            activity = activity,
+            contactId = id,
+            onCancel = { editing = false },
+            onSaved = { savedId ->
+                editing = false
+                dataVersion++
+                selectedId = savedId ?: id
+            },
+            onDeleted = {
+                editing = false
+                selectedId = null
+                dataVersion++
+            },
+        )
+        id == null -> ContactListScreen(
             contacts = contacts,
             query = query,
             onQueryChange = { query = it },
             listState = listState,
             onOpen = { selectedId = it },
+            onAdd = { withWritePermission { adding = true } },
         )
-    } else {
-        ContactDetailScreen(
+        else -> ContactDetailScreen(
             activity = activity,
             contactId = id,
-            refreshKey = refreshKey,
+            refreshKey = reloadKey,
             onBack = { selectedId = null },
+            onEdit = { withWritePermission { editing = true } },
         )
     }
 }
@@ -124,11 +184,13 @@ private fun MainContent(
 @Composable
 private fun PermissionScreen(activity: MainActivity, onResult: (Boolean) -> Unit) {
     var deniedForGood by remember { mutableStateOf(false) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    val permissions = arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        val granted = result[Manifest.permission.READ_CONTACTS] == true
         if (!granted && !activity.canAskForPermission()) deniedForGood = true
         onResult(granted)
     }
-    LaunchedEffect(Unit) { launcher.launch(Manifest.permission.READ_CONTACTS) }
+    LaunchedEffect(Unit) { launcher.launch(permissions) }
 
     Column(
         Modifier
@@ -139,10 +201,10 @@ private fun PermissionScreen(activity: MainActivity, onResult: (Boolean) -> Unit
     ) {
         BasicText("Rolodex", style = headingStyle())
         BasicText(
-            "This app needs permission to read the contacts on your phone. Nothing leaves the device.",
+            "This app needs permission to read and edit the contacts on your phone. Nothing leaves the device.",
             style = paragraphStyle(),
         )
-        TextButton("ALLOW") { launcher.launch(Manifest.permission.READ_CONTACTS) }
+        TextButton("ALLOW") { launcher.launch(permissions) }
         if (deniedForGood) {
             BasicText(
                 "If no prompt appears, grant it from app settings, or from a computer with:",
@@ -166,6 +228,7 @@ private fun ContactListScreen(
     onQueryChange: (String) -> Unit,
     listState: LazyListState,
     onOpen: (Long) -> Unit,
+    onAdd: () -> Unit,
 ) {
     val filtered = remember(contacts, query) {
         val q = query.trim()
@@ -175,7 +238,11 @@ private fun ContactListScreen(
 
     Column(Modifier.fillMaxSize().padding(horizontal = designDp(24f))) {
         Spacer(Modifier.height(designDp(16f)))
-        SearchField(query, onQueryChange)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { SearchField(query, onQueryChange) }
+            Spacer(Modifier.width(designDp(20f)))
+            TextButton("ADD", onClick = onAdd)
+        }
         Spacer(Modifier.height(designDp(12f)))
 
         when {
@@ -230,7 +297,7 @@ private fun SearchField(query: String, onChange: (String) -> Unit) {
 
 /** A drawn "X" (no font glyph needed) with a generous tap area. */
 @Composable
-private fun ClearButton(onClick: () -> Unit) {
+fun ClearButton(onClick: () -> Unit) {
     val glyph = designDp(18f)
     Box(
         Modifier
@@ -253,6 +320,7 @@ private fun ContactDetailScreen(
     contactId: Long,
     refreshKey: Int,
     onBack: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     var detail by remember(contactId) { mutableStateOf<ContactDetail?>(null) }
     var loaded by remember(contactId) { mutableStateOf(false) }
@@ -265,11 +333,13 @@ private fun ContactDetailScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
+        val d = detail
         Row(Modifier.fillMaxWidth().padding(horizontal = designDp(24f), vertical = designDp(12f))) {
             TextButton("BACK", onClick = onBack)
+            Spacer(Modifier.weight(1f))
+            if (d != null) TextButton("EDIT", onClick = onEdit)
         }
 
-        val d = detail
         Column(
             Modifier
                 .fillMaxSize()
@@ -342,7 +412,7 @@ private fun EntryRow(entry: Entry, activity: MainActivity) {
 // ---- Shared -------------------------------------------------------------------------
 
 @Composable
-private fun TextButton(label: String, onClick: () -> Unit) {
+fun TextButton(label: String, onClick: () -> Unit) {
     BasicText(
         label,
         style = buttonStyle(),
