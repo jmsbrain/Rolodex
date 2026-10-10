@@ -21,17 +21,13 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/**
- * A small imitation of the Light SDK's look: black background, white type,
- * the phone's own Akkurat font when present, and sizes scaled to screen height
- * the same way LightOS does it (design pixels against a 600px baseline).
- */
+/** LightOS look: black, white, Akkurat, sizes scaled to a 600px-tall design. */
 object LightStyle {
     val background = Color.Black
     val content = Color.White
     val secondary = Color(0xFFBBBBBB)
 
-    /** Akkurat ships on Light Phone III; anywhere else this falls back to the default font. */
+    /** Akkurat if the phone has it. */
     val font: FontFamily by lazy { loadAkkurat() ?: FontFamily.Default }
 
     private fun loadAkkurat(): FontFamily? {
@@ -56,10 +52,10 @@ object LightStyle {
 
 private const val BASELINE_PX = 600f
 
-/** Makes all text this much bigger than LightOS's standard sizes. Tweak to taste. */
+/** Text size vs. LightOS standard. */
 const val TEXT_SCALE = 1.2f
 
-/** The contact list's text is a little bigger than the rest of the app. */
+/** Text size for the contact list. */
 const val LIST_TEXT_SCALE = 1.3f
 
 /** Rescales a style from [TEXT_SCALE] to [LIST_TEXT_SCALE]. */
@@ -68,7 +64,7 @@ fun TextStyle.forList(): TextStyle = copy(
     lineHeight = lineHeight * (LIST_TEXT_SCALE / TEXT_SCALE),
 )
 
-/** A real-world distance on this screen, using the display's reported pixels per inch. */
+/** Physical inches on this screen. */
 @Composable
 fun physicalInches(inches: Float): Dp {
     val ydpi = LocalContext.current.resources.displayMetrics.ydpi
@@ -87,7 +83,7 @@ fun designDp(px: Float): Dp {
     return (px * h / BASELINE_PX).dp
 }
 
-/** Sizes taken from the Light SDK's typography table. */
+/** Light SDK type sizes. */
 @Composable
 fun headingStyle() = TextStyle(
     fontFamily = LightStyle.font, fontWeight = FontWeight.Normal,
@@ -120,7 +116,7 @@ fun buttonStyle() = TextStyle(
     letterSpacing = designSp(20f * 0.15f), color = LightStyle.content,
 )
 
-/** Click without the Material ripple, matching LightOS's flat feel. */
+/** Click with no ripple. */
 @Composable
 fun Modifier.flatClickable(onClick: () -> Unit): Modifier =
     this.clickable(

@@ -1,4 +1,4 @@
-@file:Suppress("DEPRECATION") // Im is deprecated but still how contacts store messaging handles.
+@file:Suppress("DEPRECATION") // Im
 
 package com.jms.fullcontacts
 
@@ -14,13 +14,10 @@ import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Intents.Insert
 import java.util.Locale
 
-/** One value to add, e.g. a phone number another app wants saved. Dates are in editor form (MM/DD/YYYY). */
+/** A value to add. Dates in editor form (MM/DD/YYYY). */
 data class PrefillItem(val kind: EditKind, val type: Int, val label: String?, val value: String)
 
-/**
- * Details to fill into the editor without saving: from another app's "add to
- * contacts" request or from a .vcf file. Applied on top of a new or existing contact.
- */
+/** Unsaved details for the editor, from another app or a .vcf. */
 data class Prefill(
     val prefix: String = "",
     val first: String = "",
@@ -36,10 +33,7 @@ data class Prefill(
         get() = listOf(prefix, first, middle, last, suffix).filter { it.isNotBlank() }.joinToString(" ")
             .ifEmpty { items.firstOrNull { it.kind == EditKind.PHONES || it.kind == EditKind.EMAILS }?.value.orEmpty() }
 
-    /**
-     * Fills the name and work fields only if they're empty, and adds each value
-     * that isn't already on the contact (into the editor's blank phone line if there is one).
-     */
+    /** Fills empty name/work fields and adds values not already there. */
     fun applyTo(draft: ContactDraft): ContactDraft {
         var d = draft
         if (d.nameParts.all { it.isBlank() }) {
@@ -62,7 +56,7 @@ data class Prefill(
     }
 
     companion object {
-        /** Keys for prefilled values; far from the editor's own (-1, -2, …) so they never collide. */
+        /** Far from the editor's own keys (-1, -2, …). */
         private const val PREFILL_KEYS = Long.MIN_VALUE / 2
 
         private fun sameValue(kind: EditKind, a: String, b: String) = when (kind) {
@@ -81,13 +75,13 @@ data class Prefill(
             }
         }
 
-        /** Reads the standard ContactsContract.Intents.Insert extras other apps send with "add to contacts". */
+        /** Reads Intents.Insert extras. */
         @Suppress("DEPRECATION")
         fun fromInsertExtras(extras: Bundle?): Prefill? {
             if (extras == null || extras.isEmpty) return null
             val items = ArrayList<PrefillItem>()
 
-            /** A type extra can be a number (a standard type) or text (a custom label). */
+            /** Type extras are an Int or a custom label. */
             fun typed(kind: EditKind, valueKey: String, typeKey: String) {
                 val value = extras.getCharSequence(valueKey)?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: return
                 val (type, label) = when (val t = extras.get(typeKey)) {
@@ -118,7 +112,7 @@ data class Prefill(
                 prefill = prefill.copy(first = first, last = last)
             }
 
-            // Newer apps can send any rows at all as a list of ContentValues.
+            // Raw rows (Insert.DATA).
             val rows = extras.getParcelableArrayList<ContentValues>(Insert.DATA).orEmpty()
             for (row in rows) {
                 when (val mime = row.getAsString(Data.MIMETYPE)) {
@@ -129,7 +123,7 @@ data class Prefill(
                         last = row.getAsString(StructuredName.FAMILY_NAME) ?: prefill.last,
                         suffix = row.getAsString(StructuredName.SUFFIX) ?: prefill.suffix,
                     ).let { p ->
-                        // Only a display name given: split it.
+                        // Display name only: split it.
                         val display = row.getAsString(StructuredName.DISPLAY_NAME)
                         if (display != null && listOf(p.first, p.last).all { it.isBlank() }) {
                             val (f, l) = splitName(display)
@@ -160,7 +154,7 @@ data class Prefill(
             return result.takeIf { it != Prefill() }
         }
 
-        /** Maps phone/email/address type words (as used by vCards) to Android types. */
+        /** vCard type words → Android type. */
         fun typeFromWords(kind: EditKind, words: Set<String>): Pair<Int, String?> {
             val w = words.map { it.uppercase(Locale.ROOT) }.toSet()
             val custom = w.firstOrNull { it.startsWith("X-") }?.removePrefix("X-")
@@ -196,7 +190,7 @@ data class Prefill(
             }
         }
 
-        /** Maps a messaging app name or URI scheme ("signal", "xmpp", …) to how Android stores it. */
+        /** Messaging app name or scheme → field and protocol. */
         fun imProtocol(name: String): PrefillItemType {
             val n = name.lowercase(Locale.ROOT)
             return when (n) {
@@ -219,5 +213,5 @@ data class Prefill(
     }
 }
 
-/** Which field a value goes into, and its type. */
+/** Field and type for a value. */
 data class PrefillItemType(val kind: EditKind, val type: Int, val label: String?)

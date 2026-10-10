@@ -1,4 +1,4 @@
-@file:Suppress("DEPRECATION") // Im and SipAddress are deprecated but still how contacts store these fields.
+@file:Suppress("DEPRECATION") // Im, SipAddress
 
 package com.jms.fullcontacts
 
@@ -28,24 +28,24 @@ import java.time.MonthDay
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** One choice for the type button: a standard type, or a custom one when [label] is set. */
+/** A type dropdown choice; [label] set means custom. */
 data class TypeOption(val type: Int, val label: String?, val name: String)
 
 private fun std(type: Int, name: String) = TypeOption(type, null, name)
 private fun custom(type: Int, label: String) = TypeOption(type, label, label.uppercase(Locale.ROOT))
 
-/** The repeatable fields the editor handles. Every one of these stores its value in DATA1. */
+/** Repeatable editor fields. Value is always DATA1. */
 enum class EditKind(
     val title: String,
     val mime: String,
-    /** Column holding the type (or protocol, for messaging); null when the field has none. */
+    /** Type column (protocol for messaging). */
     val typeColumn: String?,
     val labelColumn: String?,
-    /** The type value that means "use the label". */
+    /** Type meaning "use the label". */
     val customType: Int,
-    /** What the type button cycles through; empty means no button and the type is left as is. */
+    /** Dropdown choices; empty = no dropdown. */
     val options: List<TypeOption>,
-    /** Type given to newly added values. */
+    /** Type for new values. */
     val defaultOption: TypeOption?,
     val placeholder: String,
     val addLabel: String,
@@ -103,10 +103,7 @@ enum class EditKind(
     NOTES("NOTES", Note.CONTENT_ITEM_TYPE, null, null, 0, emptyList(), null, "Note", "ADD NOTE"),
 }
 
-/**
- * One value being edited. [rowIds] are the data rows it was loaded from (merged
- * contacts can hold the same number several times); empty for a newly added value.
- */
+/** One edited value. [rowIds]: its rows (duplicates included); empty if new. */
 data class DraftItem(
     val key: Long,
     val rowIds: List<Long>,
@@ -130,11 +127,11 @@ data class DraftItem(
     }
 }
 
-/** Everything the editor shows, as loaded or as edited. Compared field by field when saving. */
+/** Editor state; saving writes the diff between two of these. */
 data class ContactDraft(
-    /** Null for a contact that doesn't exist yet. */
+    /** Null if new. */
     val contactId: Long?,
-    /** The raw contact new rows are added to; null for a new contact. */
+    /** Where new rows go; null if new. */
     val rawContactId: Long?,
     val nameRowId: Long?,
     val prefix: String,
@@ -167,11 +164,7 @@ class ContactWriter(
 
     private data class Account(val type: String?, val name: String?)
 
-    /**
-     * The account that holds most contacts among those that sync changes back to a
-     * server (here, the DAVx5 mailbox.org address book). New contacts and new values
-     * go there so they sync. Falls back to the phone itself when there's no such account.
-     */
+    /** Biggest account that syncs back to a server (e.g. DAVx5); new data goes here. */
     private val mainAccount: Account by lazy {
         val uploading = ContentResolver.getSyncAdapterTypes()
             .filter { it.authority == ContactsContract.AUTHORITY && it.supportsUploading() }
@@ -193,7 +186,7 @@ class ContactWriter(
         counts.maxByOrNull { it.value }?.key ?: Account(null, null)
     }
 
-    /** Picks the copy of a merged contact that edits should go to: the main account's if there is one. */
+    /** The copy of a merged contact to edit: the main account's if any. */
     private fun targetRawContact(contactId: Long, nameRawId: Long?): Long? {
         val raws = ArrayList<Pair<Long, Account>>()
         resolver.query(
@@ -259,7 +252,7 @@ class ContactWriter(
                 val rawId = c.getLong(rawCol)
                 val mime = c.str(Data.MIMETYPE)
                 when (mime) {
-                    // Prefer the name and work rows of the copy edits go to, so changes sync.
+                    // Prefer the target copy's rows so edits sync.
                     StructuredName.CONTENT_ITEM_TYPE -> if (nameRowId == null || (rawId == target && nameRowRaw != target)) {
                         nameRowId = rowId
                         nameRowRaw = rawId
@@ -321,7 +314,7 @@ class ContactWriter(
         val type = kind.typeColumn?.let { c.str(it)?.toIntOrNull() } ?: kind.customType
         var label = kind.labelColumn?.let { c.str(it) }
         if (type != kind.customType && kind.options.none { it.type == type && it.label == null }) {
-            // A standard type the button doesn't offer (e.g. "Work fax"): keep its name for display.
+            // Type not in the dropdown (e.g. work fax): keep its name.
             label = standardTypeName(kind, type) ?: label
         }
         return DraftItem(rowId, listOf(rowId), type, label, value)
@@ -336,10 +329,7 @@ class ContactWriter(
         else -> null
     }?.toString()
 
-    /**
-     * Writes what changed between [original] and [edited] and returns the contact's id,
-     * which is new for an added contact (and can change if Android merges contacts).
-     */
+    /** Writes the changes; returns the (possibly new) contact id. */
     fun save(original: ContactDraft, edited: ContactDraft): Long? {
         val ops = ArrayList<ContentProviderOperation>()
         var rawId = original.rawContactId
@@ -414,7 +404,6 @@ class ContactWriter(
                 when {
                     item.rowIds.isEmpty() -> if (value.isNotEmpty()) {
                         val b = insert(kind.mime).withRowValues(kind, item, value, writeType = true)
-                        // Messaging rows also carry a home/work type, separate from the app (protocol).
                         if (kind == EditKind.MESSAGING) b.withValue(Im.TYPE, Im.TYPE_OTHER)
                         ops += b.build()
                     }
@@ -427,7 +416,7 @@ class ContactWriter(
         }
 
         if (ops.isEmpty() || (original.rawContactId == null && ops.size == 1)) {
-            // Nothing to write (a new contact with every field left blank isn't created).
+            // Nothing to write; don't create blank contacts.
             return original.contactId
         }
 
@@ -450,7 +439,7 @@ class ContactWriter(
     ) = apply {
         withValue(Data.DATA1, value)
         if (kind == EditKind.ADDRESSES) {
-            // Clear the parsed parts so Android rebuilds them from the new text.
+            // Android re-parses these from the new text.
             for (col in listOf(
                 StructuredPostal.STREET, StructuredPostal.POBOX, StructuredPostal.NEIGHBORHOOD, StructuredPostal.CITY,
                 StructuredPostal.REGION, StructuredPostal.POSTCODE, StructuredPostal.COUNTRY,
@@ -462,12 +451,12 @@ class ContactWriter(
         }
     }
 
-    /** Deletes the contact, including every account's copy of it. */
+    /** Deletes every copy of the contact. */
     fun delete(contactId: Long): Boolean =
         resolver.delete(ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId), null, null) > 0
 
     companion object {
-        /** Dates in the editor that were changed and can't be read; the editor won't save until they're fixed. */
+        /** Changed dates that can't be parsed. */
         fun unreadableDates(original: ContactDraft, edited: ContactDraft): List<String> {
             val before = original.items[EditKind.DATES].orEmpty().associateBy { it.key }
             return edited.items[EditKind.DATES].orEmpty()
@@ -480,7 +469,7 @@ class ContactWriter(
             return if (kind == EditKind.DATES && s.isNotEmpty()) dateForStorage(s) else s
         }
 
-        /** "yyyy-MM-dd" → "MM/dd/yyyy" and "--MM-dd" → "MM/dd"; anything else is shown as stored. */
+        /** Stored date → MM/dd/yyyy or MM/dd. */
         internal fun dateForEditing(raw: String): String = try {
             if (raw.startsWith("--")) {
                 MonthDay.parse(raw).format(DateTimeFormatter.ofPattern("MM/dd"))
@@ -491,7 +480,7 @@ class ContactWriter(
             raw
         }
 
-        /** Reads M/D/YYYY or M/D (also with - or .), or the stored forms; null if it isn't a real date. */
+        /** M/D/YYYY or M/D → stored form; null if invalid. */
         internal fun dateForStorage(input: String): String? {
             Regex("""(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{4}))?""").matchEntire(input)?.let { m ->
                 val month = m.groupValues[1].toInt()

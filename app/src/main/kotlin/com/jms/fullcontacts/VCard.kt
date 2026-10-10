@@ -6,17 +6,14 @@ import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
 import java.util.Locale
 
-/**
- * Reads .vcf contact files (vCard 2.1, 3.0 and 4.0) into [Prefill]s for the editor.
- * Covers the fields Rolodex edits; photos and anything unknown are skipped.
- */
+/** Reads vCard 2.1/3.0/4.0 files. Photos and unknown fields are skipped. */
 object VCard {
 
-    /** One "NAME;PARAMS:value" line, unfolded and decoded. */
+    /** One decoded "NAME;PARAMS:value" line. */
     private class Property(val name: String, val params: Map<String, List<String>>, val rawValue: String) {
         val types: Set<String> = params["TYPE"].orEmpty().flatMap { it.split(',') }.map { it.uppercase(Locale.ROOT) }.toSet()
 
-        /** The value split on unescaped ';' (for N, ADR, ORG), each part unescaped. */
+        /** Parts split on ';' (N, ADR, ORG). */
         val parts: List<String> get() = splitUnescaped(rawValue, ';').map(::unescape)
         val text: String get() = unescape(rawValue)
     }
@@ -38,12 +35,9 @@ object VCard {
         return cards
     }
 
-    // ---- Reading lines ------------------------------------------------------------
+    // ---- Lines ----
 
-    /**
-     * Joins folded lines (a continuation starts with a space or tab) and
-     * quoted-printable soft line breaks (a line ending in "=").
-     */
+    /** Joins folded lines and quoted-printable soft breaks. */
     private fun logicalLines(content: String): List<String> {
         val out = ArrayList<String>()
         val lines = content.replace("\r\n", "\n").replace('\r', '\n').split('\n')
@@ -71,14 +65,14 @@ object VCard {
         val head = line.substring(0, colon)
         var value = line.substring(colon + 1)
         val pieces = splitUnescaped(head, ';')
-        // Drop a group prefix such as "item1.TEL".
+        // Drop "item1." style groups.
         val name = pieces[0].substringAfterLast('.').uppercase(Locale.ROOT)
 
         val params = HashMap<String, MutableList<String>>()
         for (p in pieces.drop(1)) {
             val eq = p.indexOf('=')
             if (eq < 0) {
-                // vCard 2.1 writes bare types ("TEL;CELL;HOME") and encodings ("QUOTED-PRINTABLE").
+                // vCard 2.1 bare params, e.g. TEL;CELL.
                 val bare = p.uppercase(Locale.ROOT)
                 if (bare == "QUOTED-PRINTABLE" || bare == "BASE64" || bare == "B") {
                     params.getOrPut("ENCODING") { ArrayList() } += bare
@@ -92,7 +86,7 @@ object VCard {
         }
 
         val encoding = params["ENCODING"]?.firstOrNull()?.uppercase(Locale.ROOT)
-        if (encoding == "BASE64" || encoding == "B") return null  // A photo or other binary data.
+        if (encoding == "BASE64" || encoding == "B") return null  // Binary, e.g. photo.
         if (encoding == "QUOTED-PRINTABLE") {
             val charset = params["CHARSET"]?.firstOrNull()
                 ?.let { runCatching { Charset.forName(it) }.getOrNull() } ?: Charsets.UTF_8
@@ -169,7 +163,7 @@ object VCard {
         return String(bytes.toByteArray(), charset)
     }
 
-    // ---- Turning properties into a contact --------------------------------------
+    // ---- Contact ----
 
     private fun toPrefill(props: List<Property>): Prefill? {
         var p = Prefill()
@@ -228,7 +222,7 @@ object VCard {
                     val (type, label) = relationType(prop.types)
                     items += PrefillItem(EditKind.RELATIONS, type, label, prop.text)
                 }
-                // Android's own export: X-ANDROID-CUSTOM:<mimetype>;data1;data2;data3;…
+                // Android export: <mimetype>;data1;data2;data3
                 "X-ANDROID-CUSTOM" -> {
                     val d = prop.parts + List(4) { "" }
                     val kind = EditKind.entries.firstOrNull { it.mime == d[0] } ?: continue
@@ -261,10 +255,7 @@ object VCard {
         }
     }
 
-    /**
-     * vCard dates come as 1990-05-12, 19900512, --0512 or --05-12 (sometimes with
-     * a time after). Returns the editor's MM/DD/YYYY or MM/DD form, or null.
-     */
+    /** vCard date → MM/DD/YYYY or MM/DD; null if unreadable. */
     private fun date(raw: String): String? {
         val s = raw.trim().substringBefore('T')
         val iso = when {

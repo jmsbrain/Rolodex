@@ -93,7 +93,7 @@ private fun MainContent(
     var editing by rememberSaveable { mutableStateOf(false) }
     var adding by rememberSaveable { mutableStateOf(false) }
 
-    // Another app asked to show a specific contact.
+    // Opened from another app.
     LaunchedEffect(openContactId) {
         if (openContactId != null) {
             selectedId = openContactId
@@ -106,7 +106,7 @@ private fun MainContent(
     val listState = rememberLazyListState()
     var contacts by remember { mutableStateOf<List<ContactSummary>?>(null) }
 
-    // Bumped after every save or delete so the list and detail screens reload.
+    // Bumped on save/delete to reload.
     var dataVersion by remember { mutableIntStateOf(0) }
     val reloadKey = refreshKey + dataVersion
 
@@ -116,7 +116,7 @@ private fun MainContent(
         }
     }
 
-    // Editing needs WRITE_CONTACTS, which older installs were never asked for.
+    // Ask for WRITE_CONTACTS on first edit.
     var afterWriteGranted by remember { mutableStateOf<(() -> Unit)?>(null) }
     val writeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val action = afterWriteGranted
@@ -189,7 +189,7 @@ private fun MainContent(
     }
 }
 
-// ---- Permission ---------------------------------------------------------------------
+// ---- Permission ----
 
 @Composable
 fun PermissionScreen(activity: RolodexActivity, onResult: (Boolean) -> Unit) {
@@ -229,9 +229,9 @@ fun PermissionScreen(activity: RolodexActivity, onResult: (Boolean) -> Unit) {
     }
 }
 
-// ---- List ---------------------------------------------------------------------------
+// ---- List ----
 
-/** The searchable list of names. Also used when another app asks to pick a contact. */
+/** Searchable list of names (also the picker). */
 @Composable
 fun ContactListScreen(
     contacts: List<ContactSummary>?,
@@ -309,7 +309,7 @@ fun SearchField(query: String, onChange: (String) -> Unit) {
     }
 }
 
-/** A drawn "X" (no font glyph needed) with a generous tap area. */
+/** A drawn X button. */
 @Composable
 fun ClearButton(onClick: () -> Unit) {
     val glyph = designDp(18f)
@@ -326,7 +326,7 @@ fun ClearButton(onClick: () -> Unit) {
     }
 }
 
-// ---- Detail -------------------------------------------------------------------------
+// ---- Detail ----
 
 @Composable
 private fun ContactDetailScreen(
@@ -417,7 +417,7 @@ private fun EntryRow(entry: Entry, activity: RolodexActivity) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            // Skip the small label when it would just repeat the section title.
+            // Skip labels that repeat the section title.
             if (entry.label.isNotBlank() && entry.label != "NOTE" && entry.label != "WEBSITE" && entry.label != "NICKNAME" && entry.label != "SIP") {
                 BasicText(entry.label, style = labelStyle())
             }
@@ -431,9 +431,9 @@ private fun EntryRow(entry: Entry, activity: RolodexActivity) {
     }
 }
 
-// ---- Shared -------------------------------------------------------------------------
+// ---- Shared ----
 
-/** A text button that opens a small list of choices below it. */
+/** Text button with a dropdown menu. */
 @Composable
 fun MenuButton(label: String, items: List<Pair<String, () -> Unit>>) {
     var expanded by remember { mutableStateOf(false) }
@@ -453,11 +453,7 @@ fun MenuButton(label: String, items: List<Pair<String, () -> Unit>>) {
 
 class MenuItem(val text: String, val selected: Boolean, val onClick: () -> Unit)
 
-/**
- * Places a menu just below what opened it, or just above when there isn't room
- * below. (Left alone, Android shoves a menu that doesn't fit back on screen,
- * covering the label that opened it.)
- */
+/** Menu below its anchor, or above if it doesn't fit. */
 class DropdownPosition(private val alignEnd: Boolean) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -473,7 +469,7 @@ class DropdownPosition(private val alignEnd: Boolean) : PopupPositionProvider {
     }
 }
 
-/** The bordered black box used by dropdowns and menus. */
+/** Bordered menu box. */
 @Composable
 fun MenuList(items: List<MenuItem>) {
     Column(

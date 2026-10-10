@@ -9,13 +9,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-/** The contacts app itself: list, contact cards and the editor. */
+/** The app: list, cards, editor. */
 class MainActivity : RolodexActivity() {
 
-    /** Set when another app asks us to show a specific contact. */
+    /** Contact another app asked to show. */
     private var openContactId by mutableStateOf<Long?>(null)
 
-    /** A contact link that needs READ_CONTACTS to resolve; kept until permission is granted. */
+    /** Link waiting on the contacts permission. */
     private var pendingContactUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,10 +46,7 @@ class MainActivity : RolodexActivity() {
 
     override fun onPermissionChanged() = resolvePendingContact()
 
-    /**
-     * If another app asked to show one contact (VIEW or QUICK_CONTACT with a
-     * content://com.android.contacts/... link), jump straight to it.
-     */
+    /** VIEW / QUICK_CONTACT from another app: open that contact. */
     private fun handleIntent(intent: Intent?) {
         val uri = intent?.data ?: return
         if (intent.action != Intent.ACTION_VIEW && intent.action != ContactsContract.QuickContact.ACTION_QUICK_CONTACT) return
@@ -58,15 +55,11 @@ class MainActivity : RolodexActivity() {
         resolvePendingContact()
     }
 
-    /**
-     * Turns [pendingContactUri] into a contact id. Most links need the contacts
-     * permission, so if it isn't granted yet the link is kept and this runs
-     * again once it is.
-     */
+    /** Opens [pendingContactUri] once it can be resolved. */
     private fun resolvePendingContact() {
         val uri = pendingContactUri ?: return
         val id = resolveContactId(uri)
-        if (id == null && !checkPermission()) return  // Try again after permission is granted.
+        if (id == null && !checkPermission()) return  // Retry after permission.
         pendingContactUri = null
         if (id != null && id >= 0) openContactId = id
     }

@@ -48,11 +48,7 @@ import kotlinx.coroutines.withContext
 
 private enum class EditorMode { Editing, ConfirmDiscard, ConfirmDelete, Busy }
 
-/**
- * Edits an existing contact, or creates one when [contactId] is null.
- * [prefill] (from another app or a .vcf file) is filled in on top, unsaved.
- * Nothing is written until SAVE.
- */
+/** Edits a contact (new if [contactId] is null). Writes only on SAVE. */
 @Composable
 fun ContactEditorScreen(
     activity: RolodexActivity,
@@ -244,7 +240,7 @@ private fun SectionTitle(title: String, first: Boolean = false) {
     BasicText(title, style = labelStyle())
 }
 
-/** A field that can hold several values (phones, addresses, …), each with a remove X. */
+/** A repeatable field. */
 @Composable
 private fun ItemsSection(
     kind: EditKind,
@@ -290,7 +286,7 @@ private fun ItemsSection(
     }
 }
 
-/** The type label (MOBILE, HOME, …) with a ▾; tapping it opens a list of choices. */
+/** Type label with a dropdown. */
 @Composable
 private fun TypeDropdown(kind: EditKind, item: DraftItem, onSelect: (TypeOption) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
@@ -305,7 +301,7 @@ private fun TypeDropdown(kind: EditKind, item: DraftItem, onSelect: (TypeOption)
         ) {
             BasicText(item.typeName(kind), style = style)
             Spacer(Modifier.width(designDp(8f)))
-            // A drawn ▾ so it doesn't depend on the font having the glyph.
+            // Drawn ▾
             Canvas(Modifier.size(width = designDp(10f), height = designDp(6f))) {
                 drawPath(
                     Path().apply {

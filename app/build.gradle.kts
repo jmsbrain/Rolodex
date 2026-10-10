@@ -21,8 +21,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Signed with the debug key so `assembleRelease` gives an installable APK
-            // without setting up a keystore. Fine for personal sideloading.
+            // Debug key: installable APK without a keystore.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

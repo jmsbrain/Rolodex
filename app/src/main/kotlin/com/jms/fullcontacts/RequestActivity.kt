@@ -36,32 +36,28 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** What another app asked Rolodex to do. */
+/** A request from another app. */
 sealed interface Request {
-    /** Rows a request writes need WRITE_CONTACTS too. */
+    /** Needs WRITE_CONTACTS. */
     val writes: Boolean
 
-    /** "Add to contacts": a new contact, filled in with what the app sent. */
+    /** New contact, prefilled. */
     data class Insert(val prefill: Prefill?) : Request { override val writes = true }
 
-    /** Edit one contact, optionally adding what the app sent. */
+    /** Edit a contact, optionally prefilled. */
     data class Edit(val uri: Uri, val prefill: Prefill?) : Request { override val writes = true }
 
-    /** "Add to existing or new contact": choose which, then edit. */
+    /** Pick existing or new, then edit. */
     data class InsertOrEdit(val prefill: Prefill?) : Request { override val writes = true }
 
-    /** Choose a contact ([kind] null), or one phone number / email / address. */
+    /** Pick a contact ([kind] null) or one value. */
     data class Pick(val kind: EditKind?) : Request { override val writes = false }
 
-    /** Open a .vcf file and save its contacts. */
+    /** Import a .vcf. */
     data class Import(val uri: Uri) : Request { override val writes = true }
 }
 
-/**
- * Answers other apps the way the stock Contacts app does: add or edit a contact,
- * pick a contact or number, or import a .vcf file. When done it returns to the
- * app that asked, with the result.
- */
+/** Handles add, edit, pick and .vcf requests, then returns to the caller. */
 class RequestActivity : RolodexActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,7 +107,7 @@ class RequestActivity : RolodexActivity() {
         }
     }
 
-    /** Returns [uri] to the app that asked, letting it read that one contact or row. */
+    /** Returns [uri] with read access. */
     fun finishWith(uri: Uri?) {
         val result = Intent()
         if (uri != null) {
@@ -180,7 +176,7 @@ private fun RequestContent(activity: RequestActivity, request: Request) {
     }
 }
 
-/** A heading plus the normal searchable list of names. */
+/** Heading + contact list. */
 @Composable
 private fun PickContact(
     activity: RolodexActivity,
@@ -217,7 +213,7 @@ private fun PickContact(
     }
 }
 
-/** Choose one phone number, email or address; each row shows the contact's name and the value. */
+/** Pick one phone, email or address. */
 @Composable
 private fun PickValue(activity: RequestActivity, kind: EditKind) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -269,10 +265,10 @@ private fun PickValue(activity: RequestActivity, kind: EditKind) {
     }
 }
 
-/** "Add to contacts" with a choice: pick an existing contact to add to, or NEW. */
+/** Pick a contact (or NEW), then edit. */
 @Composable
 private fun InsertOrEditFlow(activity: RequestActivity, prefill: Prefill?) {
-    // null = still choosing; NEW_CONTACT = a new one; otherwise the chosen contact.
+    // null = choosing, NEW_CONTACT = new.
     var target by rememberSaveable { mutableStateOf<Long?>(null) }
     val t = target
     if (t == null) {
@@ -293,10 +289,7 @@ private fun InsertOrEditFlow(activity: RequestActivity, prefill: Prefill?) {
 
 private const val NEW_CONTACT = -1L
 
-/**
- * A .vcf file: one contact opens in the editor to check and save; several are
- * listed with IMPORT ALL.
- */
+/** One contact opens in the editor; several get IMPORT ALL. */
 @Composable
 private fun ImportFlow(activity: RequestActivity, uri: Uri) {
     var cards by remember { mutableStateOf<List<Prefill>?>(null) }

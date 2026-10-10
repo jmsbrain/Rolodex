@@ -23,14 +23,10 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-/**
- * What every Rolodex screen shares: contact access, permissions, and the actions
- * behind tapping an entry (dial, map, copy, share). [MainActivity] is the app
- * itself; [RequestActivity] answers other apps (add, edit, pick, import).
- */
+/** Shared by [MainActivity] and [RequestActivity]: permissions and entry actions. */
 abstract class RolodexActivity : ComponentActivity() {
 
-    /** Bumped on every resume so screens re-read contacts edited elsewhere. */
+    /** Bumped on resume so screens reload. */
     var resumeTick by mutableIntStateOf(0)
         private set
     var hasPermission by mutableStateOf(false)
@@ -94,16 +90,11 @@ abstract class RolodexActivity : ComponentActivity() {
         onPermissionChanged()
     }
 
-    /** Called after the contacts permission may have changed. */
     protected open fun onPermissionChanged() = Unit
 
     fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
-    /**
-     * Finds the contact a content://com.android.contacts/... link points to:
-     * contacts/123, contacts/lookup/<key>/..., raw_contacts/123 or data/123.
-     * Returns null if it can't be found (or needs a permission we don't have).
-     */
+    /** Contact id from a contacts, lookup, raw_contacts or data link; null if not found. */
     fun resolveContactId(uri: Uri): Long? {
         if (uri.authority != ContactsContract.AUTHORITY) return null
         val segs = uri.pathSegments
@@ -125,13 +116,9 @@ abstract class RolodexActivity : ComponentActivity() {
         contentResolver.query(ContentUris.withAppendedId(table, rowId), arrayOf(column), null, null, null)
             ?.use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null }
 
-    // ---- Actions on contact entries -------------------------------------------------
+    // ---- Entry actions ----
 
-    /**
-     * Tapping a phone number: first ask LightOS to open its own phone screen (works when the phone
-     * allows "Any tools"). Otherwise send a dial intent, aimed at LightOS if it
-     * accepts one, or at whatever dialer the phone has.
-     */
+    /** LightOS phone screen if possible, otherwise a normal dial intent. */
     fun dial(number: String) {
         scope.launch {
             if (!lightOs.openDialer(number)) {
@@ -170,7 +157,7 @@ abstract class RolodexActivity : ComponentActivity() {
         Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show()
     }
 
-    /** Opens the share menu (SMS, Signal, WhatsApp, …) with the contact written out as text. */
+    /** Share the contact as plain text. */
     fun shareAsText(name: String, text: String) {
         val send = Intent(Intent.ACTION_SEND)
             .setType("text/plain")
@@ -179,10 +166,7 @@ abstract class RolodexActivity : ComponentActivity() {
         startShare(send)
     }
 
-    /**
-     * Opens the share menu with the contact as a .vcf file. Android's contacts store
-     * writes the file itself, with every field; the receiving app is given read access.
-     */
+    /** Share the contact as a .vcf (built by Android). */
     fun shareAsVcf(contactId: Long) {
         val vcard = repository.vcardUri(contactId) ?: run {
             toast("Couldn't make a contact file for this contact")
@@ -204,7 +188,7 @@ abstract class RolodexActivity : ComponentActivity() {
         }
     }
 
-    /** Opens [intent]; if nothing on the phone can handle it, copies [fallback] instead. */
+    /** Opens [intent], or copies [fallback] if nothing can. */
     private fun launch(intent: Intent, fallback: String) {
         try {
             startActivity(intent)

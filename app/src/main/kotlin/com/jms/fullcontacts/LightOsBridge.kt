@@ -18,16 +18,8 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 
 /**
- * Talks to LightOS the same way Light SDK tools do, so tapping a number can open the
- * native LightOS phone screen instead of a generic Android dialer.
- *
- * This mirrors the wire protocol in light-sdk's LightServiceConnection:
- * bind to LightOS's SDK service, ask for a token, then call "OpenDialer".
- *
- * LightOS only answers apps it trusts. For a sideloaded app like this one that
- * means the phone must be set to allow "Any tools". If LightOS says no, isn't
- * reachable, or doesn't support this yet, [openDialer] returns false and the
- * app falls back to a normal dial intent.
+ * Asks LightOS to open its phone screen, using the light-sdk protocol.
+ * Needs "Any tools" on; otherwise [openDialer] returns false.
  */
 class LightOsBridge(private val activity: Activity) : ServiceConnection {
 
@@ -59,7 +51,7 @@ class LightOsBridge(private val activity: Activity) : ServiceConnection {
             false
         }
         if (!bound) {
-            // bindService can register the connection even when it returns false.
+            // Can be registered even on failure.
             runCatching { activity.unbindService(this) }
         }
     }
@@ -72,7 +64,7 @@ class LightOsBridge(private val activity: Activity) : ServiceConnection {
 
     /** Returns true if LightOS opened its own dialer for [number]. */
     suspend fun openDialer(number: String): Boolean = withContext(Dispatchers.IO) {
-        // One request at a time, so two quick taps don't race over the token.
+        // One at a time so taps don't race for the token.
         dialLock.withLock { openDialerLocked(number) }
     }
 
@@ -144,10 +136,7 @@ class LightOsBridge(private val activity: Activity) : ServiceConnection {
     }
 }
 
-/**
- * Does nothing. Its presence (with the SDK marker action in the manifest) is how
- * LightOS discovers SDK tools, which is what lets LightOS trust and list this app.
- */
+/** Empty marker so LightOS lists this app as a tool. */
 class LightMarkerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) = Unit
 }
