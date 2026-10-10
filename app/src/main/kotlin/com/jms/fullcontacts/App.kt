@@ -243,7 +243,7 @@ private fun ContactListScreen(
             Spacer(Modifier.width(designDp(20f)))
             TextButton("ADD", onClick = onAdd)
         }
-        Spacer(Modifier.height(physicalInches(0.2f)))
+        Spacer(Modifier.height(physicalInches(0.1f)))
 
         when {
             contacts == null -> BasicText("Loading…", style = paragraphStyle().copy(color = LightStyle.secondary))

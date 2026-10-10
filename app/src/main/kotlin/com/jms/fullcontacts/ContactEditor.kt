@@ -215,6 +215,7 @@ private fun EditorFields(
         EditField(draft.suffix, "Suffix (Jr., PhD…)", capitalization = words) { onChange(draft.copy(suffix = it)) }
 
         ItemsSection(EditKind.PHONES, draft, onChange, newKey)
+        ItemsSection(EditKind.EMAILS, draft, onChange, newKey)
         ItemsSection(EditKind.ADDRESSES, draft, onChange, newKey)
 
         SectionTitle("WORK")
@@ -226,7 +227,6 @@ private fun EditorFields(
         ItemsSection(EditKind.RELATIONS, draft, onChange, newKey)
         ItemsSection(EditKind.MESSAGING, draft, onChange, newKey)
         ItemsSection(EditKind.SIP, draft, onChange, newKey)
-        ItemsSection(EditKind.EMAILS, draft, onChange, newKey)
         ItemsSection(EditKind.WEBSITES, draft, onChange, newKey)
         ItemsSection(EditKind.DATES, draft, onChange, newKey)
         ItemsSection(EditKind.NOTES, draft, onChange, newKey)
