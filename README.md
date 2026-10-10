@@ -123,6 +123,10 @@ The APK is written to `app\build\outputs\apk\debug\app-debug.apk`.
    adb shell am start -n com.jms.fullcontacts/.MainActivity
    ```
 
+## License
+
+Rolodex is open source under the [MIT License](LICENSE). You're free to use, change and share it, as long as you keep the copyright notice.
+
 <!--
 Version history: kept in this file but hidden on the GitHub page.
 
