@@ -78,6 +78,7 @@ class ContactsRepository(
         val websites = Bucket()
         val dates = Bucket()
         val im = Bucket()
+        val sip = Bucket()
         val relations = Bucket()
         val notes = Bucket()
 
@@ -179,7 +180,7 @@ class ContactsRepository(
                         im.add(label.toString(), handle)
                     }
 
-                    SipAddress.CONTENT_ITEM_TYPE -> c.str(SipAddress.SIP_ADDRESS)?.let { im.add("SIP", it) }
+                    SipAddress.CONTENT_ITEM_TYPE -> c.str(SipAddress.SIP_ADDRESS)?.let { sip.add("SIP", it) }
 
                     Relation.CONTENT_ITEM_TYPE -> c.str(Relation.NAME)?.let { name ->
                         relations.add(relationLabel(c.int(Relation.TYPE), c.str(Relation.LABEL)), name)
@@ -199,18 +200,20 @@ class ContactsRepository(
         return ContactDetail(
             id = contactId,
             name = name,
+            // Same order as the editor.
             sections = listOfNotNull(
+                nameSection?.let { Section("FULL NAME", it) },
                 section("PHONE", phones),
-                section("EMAIL", emails),
                 section("ADDRESS", addresses),
                 section("WORK", work),
                 section("NICKNAME", nicknames),
-                section("DATES", dates),
-                section("WEBSITE", websites),
-                section("MESSAGING", im),
                 section("RELATED", relations),
+                section("MESSAGING", im),
+                section("SIP", sip),
+                section("EMAIL", emails),
+                section("WEBSITE", websites),
+                section("DATES", dates),
                 section("NOTES", notes),
-                nameSection?.let { Section("FULL NAME", it) },
             ),
         )
     }

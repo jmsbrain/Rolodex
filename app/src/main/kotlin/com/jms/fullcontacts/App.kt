@@ -396,7 +396,7 @@ private fun EntryRow(entry: Entry, activity: MainActivity) {
     ) {
         Column(Modifier.weight(1f)) {
             // Skip the small label when it would just repeat the section title.
-            if (entry.label.isNotBlank() && entry.label != "NOTE" && entry.label != "WEBSITE" && entry.label != "NICKNAME") {
+            if (entry.label.isNotBlank() && entry.label != "NOTE" && entry.label != "WEBSITE" && entry.label != "NICKNAME" && entry.label != "SIP") {
                 BasicText(entry.label, style = labelStyle())
             }
             BasicText(
