@@ -210,11 +210,11 @@ private fun EditorFields(
     ) {
         val words = KeyboardCapitalization.Words
         SectionTitle("NAME", first = true)
-        EditField(draft.prefix, "Prefix (Dr., Rev.…)", capitalization = words) { onChange(draft.copy(prefix = it)) }
+        EditField(draft.prefix, "Prefix (Dr., Rev.)", capitalization = words) { onChange(draft.copy(prefix = it)) }
         EditField(draft.first, "First", capitalization = words) { onChange(draft.copy(first = it)) }
         EditField(draft.middle, "Middle", capitalization = words) { onChange(draft.copy(middle = it)) }
         EditField(draft.last, "Last", capitalization = words) { onChange(draft.copy(last = it)) }
-        EditField(draft.suffix, "Suffix (Jr., PhD…)", capitalization = words) { onChange(draft.copy(suffix = it)) }
+        EditField(draft.suffix, "Suffix (Jr., PhD)", capitalization = words) { onChange(draft.copy(suffix = it)) }
 
         ItemsSection(EditKind.PHONES, draft, onChange, newKey)
         ItemsSection(EditKind.EMAILS, draft, onChange, newKey)
@@ -294,14 +294,12 @@ private fun ItemsSection(
 @Composable
 private fun TypeDropdown(kind: EditKind, item: DraftItem, onSelect: (TypeOption) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    var labelHeight by remember { mutableIntStateOf(0) }
     val style = labelStyle().copy(color = LightStyle.content)
 
     Box {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .onSizeChanged { labelHeight = it.height }
                 .flatClickable { expanded = true }
                 .padding(vertical = designDp(4f)),
         ) {
@@ -323,8 +321,7 @@ private fun TypeDropdown(kind: EditKind, item: DraftItem, onSelect: (TypeOption)
 
         if (expanded) {
             Popup(
-                alignment = Alignment.TopStart,
-                offset = IntOffset(0, labelHeight),
+                popupPositionProvider = DropdownPosition(alignEnd = false),
                 onDismissRequest = { expanded = false },
                 properties = PopupProperties(focusable = true),
             ) {

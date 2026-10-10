@@ -12,7 +12,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.mutableIntStateOf
@@ -433,15 +437,11 @@ private fun EntryRow(entry: Entry, activity: RolodexActivity) {
 @Composable
 fun MenuButton(label: String, items: List<Pair<String, () -> Unit>>) {
     var expanded by remember { mutableStateOf(false) }
-    var height by remember { mutableIntStateOf(0) }
     Box {
-        Box(Modifier.onSizeChanged { height = it.height }) {
-            TextButton(label) { expanded = true }
-        }
+        TextButton(label) { expanded = true }
         if (expanded) {
             Popup(
-                alignment = Alignment.TopEnd,
-                offset = IntOffset(0, height),
+                popupPositionProvider = DropdownPosition(alignEnd = true),
                 onDismissRequest = { expanded = false },
                 properties = PopupProperties(focusable = true),
             ) {
@@ -452,6 +452,26 @@ fun MenuButton(label: String, items: List<Pair<String, () -> Unit>>) {
 }
 
 class MenuItem(val text: String, val selected: Boolean, val onClick: () -> Unit)
+
+/**
+ * Places a menu just below what opened it, or just above when there isn't room
+ * below. (Left alone, Android shoves a menu that doesn't fit back on screen,
+ * covering the label that opened it.)
+ */
+class DropdownPosition(private val alignEnd: Boolean) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val left = if (alignEnd) anchorBounds.right - popupContentSize.width else anchorBounds.left
+        val x = left.coerceIn(0, maxOf(0, windowSize.width - popupContentSize.width))
+        val fitsBelow = anchorBounds.bottom + popupContentSize.height <= windowSize.height
+        val y = if (fitsBelow) anchorBounds.bottom else maxOf(0, anchorBounds.top - popupContentSize.height)
+        return IntOffset(x, y)
+    }
+}
 
 /** The bordered black box used by dropdowns and menus. */
 @Composable

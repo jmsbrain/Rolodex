@@ -125,6 +125,7 @@ Versions follow **MAJOR.MINOR.PATCH**: MINOR goes up for new features, and PATCH
 
 | Version | Changes |
 |---|---|
+| 1.5.1 | Dropdowns open above their label when there's no room below; tidier name hints |
 | 1.5.0 | Answers other apps (add, edit, pick, quick contact, .vcf import); SHARE as text or .vcf |
 | 1.4.3 | Tighter gap under search; email above address |
 | 1.4.2 | Larger list text; dropdowns for field types |
