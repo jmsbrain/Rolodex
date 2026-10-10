@@ -4,6 +4,16 @@ A full contacts app for the **Light Phone III**, styled to match LightOS.
 
 The contacts screen built into LightOS shows one number per contact. Rolodex shows and edits everything saved on a contact, keeps it in sync with your contacts server, and handles the contact requests other apps send to Android's contacts app.
 
+<p>
+  <img src="docs/screenshots/list.png" width="200" alt="Contact list, searching for Lumen">
+  <img src="docs/screenshots/contact.png" width="200" alt="Contact card with phone numbers and emails">
+  <img src="docs/screenshots/contact-more.png" width="200" alt="Contact card, scrolled to address and work">
+  <img src="docs/screenshots/share.png" width="200" alt="Share menu: as text or as a .vcf file">
+  <img src="docs/screenshots/editor.png" width="200" alt="Editor with the phone type dropdown open">
+</p>
+
+*Screenshots from a Light Phone III, using made-up demo contacts.*
+
 ## Features
 
 ### Browse
