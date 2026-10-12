@@ -114,7 +114,7 @@ The APK is written to `app\build\outputs\apk\debug\app-debug.apk`.
 2. On the phone, turn on Developer options and USB debugging, then connect it by USB.
 3. Install, or update over an existing install:
    ```bash
-   adb install -r Rolodex-1.5.1.apk
+   adb install -r Rolodex-1.6.0.apk
    ```
    Use the file name you downloaded. For your own build, it's `app\build\outputs\apk\debug\app-debug.apk`.
 3. Open Rolodex and allow Contacts access. If no prompt appears, grant it from the computer:
