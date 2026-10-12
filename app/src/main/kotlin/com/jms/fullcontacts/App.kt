@@ -202,8 +202,7 @@ private fun MainContent(
             onOpen = { selectedId = it },
             onAdd = { withWritePermission { adding = true } },
             onText = { texting = true },
-            footer = { SyncFooter(activity, syncState) { withWritePermission { syncing = true } } },
-            banner = syncBanner(activity, syncState)?.let { text -> { SyncProblem(text) { withWritePermission { syncing = true } } } },
+            banner = { SyncLine(activity, syncState) { withWritePermission { syncing = true } } },
         )
         else -> ContactDetailScreen(
             activity = activity,
@@ -268,7 +267,6 @@ fun ContactListScreen(
     onAdd: (() -> Unit)?,
     addLabel: String = "ADD",
     onText: (() -> Unit)? = null,
-    footer: (@Composable () -> Unit)? = null,
     banner: (@Composable () -> Unit)? = null,
 ) {
     val filtered = remember(contacts, query) {
@@ -295,10 +293,7 @@ fun ContactListScreen(
 
         when {
             contacts == null -> BasicText("Loading…", style = paragraphStyle().copy(color = LightStyle.secondary))
-            contacts.isEmpty() -> Column {
-                BasicText("No contacts on this phone.", style = paragraphStyle())
-                footer?.invoke()
-            }
+            contacts.isEmpty() -> BasicText("No contacts on this phone.", style = paragraphStyle())
             filtered.isEmpty() -> BasicText("No matches.", style = paragraphStyle().copy(color = LightStyle.secondary))
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(filtered, key = { it.id }) { contact ->
@@ -312,7 +307,6 @@ fun ContactListScreen(
                             .padding(vertical = designDp(9f)),
                     )
                 }
-                if (footer != null) item { footer() }
                 item { Spacer(Modifier.height(designDp(40f))) }
             }
         }
@@ -541,38 +535,27 @@ fun TextButton(label: String, onClick: () -> Unit) {
     )
 }
 
-/** Under the list: how syncing is going, and the way into its settings. */
+/** Under the search box: how syncing is going. Tapping it opens sync settings. */
 @Composable
-private fun SyncFooter(activity: RolodexActivity, state: SyncState, onOpen: () -> Unit) {
+private fun SyncLine(activity: RolodexActivity, state: SyncState, onOpen: () -> Unit) {
     val signedIn = SyncSettings.signedIn(activity)
-    val error = if (signedIn) SyncSettings.lastError(activity) else null
-    Column(Modifier.padding(top = designDp(28f))) {
-        BasicText(
-            when {
-                !signedIn -> "NOT SYNCING WITH A SERVER"
-                state.running -> "SYNCING…"
-                error != null -> "SYNC PROBLEM"
-                else -> "SYNCING WITH ${SyncSettings.server(activity)?.substringAfter("://")?.trimEnd('/')?.uppercase().orEmpty()}"
-            },
-            style = labelStyle(),
-        )
-        TextButton("SYNC SETTINGS", onClick = onOpen)
+    val (text, attention) = when {
+        !signedIn -> "SYNC: OFF" to false
+        state.running -> "SYNCING…" to false
+        SyncSettings.lastError(activity) != null -> "SYNC PROBLEM: TAP FOR DETAILS" to true
+        SyncSettings.notes(activity).isNotEmpty() -> "SOME DETAILS ONLY ON THIS PHONE: TAP" to true
+        else -> (SyncSettings.lastSync(activity)?.let { "SYNCED ${syncAgo(it)}" } ?: "SYNC: ON") to false
     }
-}
-
-@Composable
-private fun SyncProblem(text: String, onOpen: () -> Unit) {
     BasicText(
         text,
-        style = labelStyle().copy(color = LightStyle.content),
+        style = labelStyle().let { if (attention) it.copy(color = LightStyle.content) else it },
         modifier = Modifier.flatClickable(onOpen).padding(bottom = designDp(12f)),
     )
 }
 
-/** What needs attention above the list, if anything. */
-private fun syncBanner(activity: RolodexActivity, state: SyncState): String? = when {
-    state.running || !SyncSettings.signedIn(activity) -> null
-    SyncSettings.lastError(activity) != null -> "SYNC PROBLEM: TAP FOR DETAILS"
-    SyncSettings.notes(activity).isNotEmpty() -> "SOME DETAILS ONLY ON THIS PHONE: TAP"
-    else -> null
+private fun syncAgo(time: Long): String {
+    val now = System.currentTimeMillis()
+    return if (now - time < android.text.format.DateUtils.MINUTE_IN_MILLIS) "JUST NOW"
+    else android.text.format.DateUtils.getRelativeTimeSpanString(time, now, android.text.format.DateUtils.MINUTE_IN_MILLIS)
+        .toString().uppercase()
 }

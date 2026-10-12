@@ -62,7 +62,7 @@ The editor and picker return you to the app that asked.
 Rolodex can sync with a **CardDAV** contacts server (mailbox.org, Fastmail, Nextcloud, iCloud…) by itself, with no DAVx5 needed. The contacts still live in the phone's own contacts store, so LightOS's phone and messages show their names as before.
 
 ### Set it up
-1. Scroll to the bottom of the contact list and tap **SYNC SETTINGS**.
+1. Tap the sync line under the search box (it says **SYNC: OFF** until you sign in).
 2. Enter your email, password and server (`https://dav.mailbox.org/` is filled in). If your account uses two-factor sign-in, make an app password and use that.
 3. Rolodex finds your address books and syncs the main one. Tap others to sync them too. Turning a book off removes its contacts from the phone, not from the server.
 4. With more than one book, **NEW CONTACTS GO TO** picks where contacts made on the phone are saved.
@@ -71,9 +71,9 @@ Rolodex can sync with a **CardDAV** contacts server (mailbox.org, Fastmail, Next
 - **When:** right after you save, delete or import in Rolodex. Also when you open Rolodex (if the last sync was over 10 minutes ago), every hour in the background if Android allows it, and when you tap **SYNC NOW**.
 - **Both ways:** changes on the phone go up, and changes made elsewhere come down. If the same contact changed in both places, the merge goes kind by kind (phones, emails, addresses…). For each kind, the phone's version wins if you changed it there, and the server's is kept otherwise.
 - **Nothing extra is lost:** Rolodex only rewrites the parts of a contact it shows. Photos, groups/categories and fields it doesn't know stay on the server untouched. Photos aren't copied to the phone.
-- **Numbers the server can't hold stay on the phone.** mailbox.org runs Open-Xchange, which has fixed places for numbers: two mobile, two work, two home, one other, plus fax, pager, car and a few more. A third mobile number, or one with only a custom label, may be dropped. After every upload Rolodex reads the contact back. Anything the server didn't keep stays on the phone and is listed under **ONLY ON THIS PHONE** on the sync screen, and the list shows **SOME DETAILS ONLY ON THIS PHONE**. To move one onto the server, change its type in the editor (say, a third mobile to OTHER). The note clears once the server keeps it.
+- **Numbers the server can't hold stay on the phone.** mailbox.org runs Open-Xchange, which has fixed places for numbers: two mobile, two work, two home, one other, plus fax, pager, car and a few more. A third mobile number, or one with only a custom label, may be dropped. After every upload Rolodex reads the contact back. Anything the server didn't keep stays on the phone and is listed under **ONLY ON THIS PHONE** on the sync screen, and the line under the search box says **SOME DETAILS ONLY ON THIS PHONE**. To move one onto the server, change its type in the editor (say, a third mobile to OTHER). The note clears once the server keeps it.
 - **If the account disappears** (something removes it, or Android drops it), Rolodex adds it back the next time it opens or syncs, and downloads your contacts again. Edits that hadn't synced yet are lost, so sync happens right after each save.
-- A problem shows as **SYNC PROBLEM** above the list. Tap it to see what went wrong.
+- The line under the search box shows how sync is going (e.g. **SYNCED 5 MINUTES AGO**, or **SYNC PROBLEM: TAP FOR DETAILS**). Tap it for the sync screen.
 - **SIGN OUT** removes the account and its contacts from the phone. They stay on the server.
 
 ### Moving from DAVx5
