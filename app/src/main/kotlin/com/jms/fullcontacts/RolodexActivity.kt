@@ -21,7 +21,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+private const val STOCK_SMS_PACKAGE = "com.android.mms"
+/** Time for the stock app to save the conversation. */
+private const val GROUP_THREAD_DELAY_MS = 700L
 
 /** Shared by [MainActivity] and [RequestActivity]: permissions and entry actions. */
 abstract class RolodexActivity : ComponentActivity() {
@@ -133,6 +138,43 @@ abstract class RolodexActivity : ComponentActivity() {
         val lightOsHandles = packageManager.resolveActivity(lightOsIntent, 0) != null
         launch(if (lightOsHandles) lightOsIntent else intent, fallback)
     }
+
+    /**
+     * Group text to [numbers]. LightOS ignores recipients in a text link, so the stock
+     * messaging app opens first and creates the conversation, then LightOS messages takes over.
+     */
+    fun groupText(numbers: List<String>) {
+        // Pauses (, ;) would split recipients.
+        val recipients = numbers.map { dialableNumber(it).filter { ch -> ch.isDigit() || ch == '+' } }.filter { it.isNotEmpty() }.distinct()
+        if (recipients.isEmpty()) return
+        val list = recipients.joinToString(";")
+        val sms = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$list"))
+        val stock = Intent(sms).setPackage(STOCK_SMS_PACKAGE)
+        @Suppress("DEPRECATION")
+        if (packageManager.resolveActivity(stock, 0) == null) {
+            launchPreferLightOs(sms, list)
+            return
+        }
+        // Stays in our task so we may still open LightOS (Android blocks background starts),
+        // and closes once LightOS covers it, so reopening Rolodex doesn't land there.
+        stock.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
+        launch(stock, list)
+        scope.launch {
+            delay(GROUP_THREAD_DELAY_MS)
+            // LightOS only reloads its list on a screen change, so settings first (links as Luma uses them).
+            // Back to back: once LightOS is in front, we can't open anything.
+            if (!openLightOs("settingsindex") || !openLightOs("recentsindex")) {
+                runCatching { startActivity(Intent(sms).setPackage(LightOsBridge.LIGHTOS_PACKAGE)) }
+            }
+        }
+    }
+
+    private fun openLightOs(route: String): Boolean = runCatching {
+        startActivity(
+            Intent(Intent.ACTION_VIEW, Uri.parse("lightos://$route"))
+                .setClassName(LightOsBridge.LIGHTOS_PACKAGE, "com.lightos.MainActivity"),
+        )
+    }.isSuccess
 
     fun map(address: String) =
         launch(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(address))), address)

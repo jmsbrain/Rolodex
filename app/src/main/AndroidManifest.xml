@@ -8,6 +8,12 @@
     <queries>
         <!-- LightOS SDK service. -->
         <package android:name="com.lightos" />
+        <!-- Stock messaging, which sets up group texts. -->
+        <package android:name="com.android.mms" />
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.DIAL" />
             <data android:scheme="tel" />

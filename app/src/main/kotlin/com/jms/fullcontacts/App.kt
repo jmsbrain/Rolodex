@@ -92,6 +92,7 @@ private fun MainContent(
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var adding by rememberSaveable { mutableStateOf(false) }
+    var texting by rememberSaveable { mutableStateOf(false) }
 
     // Opened from another app.
     LaunchedEffect(openContactId) {
@@ -99,6 +100,7 @@ private fun MainContent(
             selectedId = openContactId
             editing = false
             adding = false
+            texting = false
             onOpenContactConsumed()
         }
     }
@@ -139,12 +141,17 @@ private fun MainContent(
         }
     }
 
-    BackHandler(enabled = selectedId != null || query.isNotEmpty()) {
-        if (selectedId != null) selectedId = null else query = ""
+    BackHandler(enabled = texting || selectedId != null || query.isNotEmpty()) {
+        when {
+            texting -> texting = false
+            selectedId != null -> selectedId = null
+            else -> query = ""
+        }
     }
 
     val id = selectedId
     when {
+        texting -> GroupTextScreen(activity, onClose = { texting = false })
         adding -> ContactEditorScreen(
             activity = activity,
             contactId = null,
@@ -178,6 +185,7 @@ private fun MainContent(
             listState = listState,
             onOpen = { selectedId = it },
             onAdd = { withWritePermission { adding = true } },
+            onText = { texting = true },
         )
         else -> ContactDetailScreen(
             activity = activity,
@@ -241,6 +249,7 @@ fun ContactListScreen(
     onOpen: (Long) -> Unit,
     onAdd: (() -> Unit)?,
     addLabel: String = "ADD",
+    onText: (() -> Unit)? = null,
 ) {
     val filtered = remember(contacts, query) {
         val q = query.trim()
@@ -252,6 +261,10 @@ fun ContactListScreen(
         Spacer(Modifier.height(designDp(16f)))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { SearchField(query, onQueryChange) }
+            if (onText != null) {
+                Spacer(Modifier.width(designDp(20f)))
+                TextButton("TEXT", onClick = onText)
+            }
             if (onAdd != null) {
                 Spacer(Modifier.width(designDp(20f)))
                 TextButton(addLabel, onClick = onAdd)

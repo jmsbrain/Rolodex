@@ -32,6 +32,12 @@ The contacts screen built into LightOS shows one number per contact. Rolodex sho
 - Nothing is written until **SAVE**. CANCEL, or the back button, asks before throwing away changes.
 - **DELETE CONTACT**, at the bottom of the editor, asks you to confirm. Deleting can't be undone.
 
+### Group text
+- **TEXT** next to the search box lists everyone with a phone number. Tap people to pick them. A filled circle marks who's in.
+- For someone with more than one number, tapping opens a menu of their numbers (MOBILE, WORK…) to choose from, plus **REMOVE** once they're picked. The chosen number shows under their name.
+- **TEXT (3)** sets up a group conversation with everyone picked and switches to LightOS's messages, where it's at the top of the list. Tap it and type.
+- LightOS ignores recipients sent from other apps, so Rolodex briefly opens Android's built-in messaging app (`com.android.mms`). That app creates the conversation, and closes itself as Rolodex switches to LightOS. LightOS only reloads its list when it changes screens, so Rolodex opens LightOS's settings for a moment, then its messages. You'll see both flash by. The switch uses `lightos://settingsindex` and `lightos://recentsindex`, the links the Luma launcher uses. Light doesn't publish them, so a LightOS update could break this. Without the built-in app, Rolodex just opens the phone's messaging app.
+
 ### Share
 - **SHARE** on a contact card sends the contact through SMS, Signal, WhatsApp or any other app on the share menu, in one of two forms:
   - **As text:** the name followed by "Mobile: …", "Email: …" and so on. Notes are left out.
@@ -136,6 +142,7 @@ Versions follow **MAJOR.MINOR.PATCH**: MINOR goes up for new features, and PATCH
 
 | Version | Changes |
 |---|---|
+| 1.6.0 | Group text: TEXT picks several people, choosing which number for anyone with more than one |
 | 1.5.1 | Dropdowns open above their label when there's no room below; tidier name hints |
 | 1.5.0 | Answers other apps (add, edit, pick, quick contact, .vcf import); SHARE as text or .vcf |
 | 1.4.3 | Tighter gap under search; email above address |
