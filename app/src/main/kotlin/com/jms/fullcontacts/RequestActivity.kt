@@ -330,6 +330,7 @@ private fun ImportFlow(activity: RequestActivity, uri: Uri) {
                                     runCatching { activity.writer.save(blank, card.applyTo(blank)) }.isSuccess
                                 }
                             }
+                            CardSync.syncSoon(activity)
                             activity.toast("Imported $saved of ${list.size} contacts")
                             activity.finishWith(null)
                         }

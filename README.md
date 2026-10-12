@@ -59,8 +59,28 @@ The editor and picker return you to the app that asked.
 
 ## Syncing
 
-Rolodex edits the phone's own contacts store, so whatever syncs your contacts carries the changes. For example, DAVx5 syncs them to a CardDAV server.
+Rolodex can sync with a **CardDAV** contacts server (mailbox.org, Fastmail, Nextcloud, iCloud…) by itself, with no DAVx5 needed. The contacts still live in the phone's own contacts store, so LightOS's phone and messages show their names as before.
 
+### Set it up
+1. Scroll to the bottom of the contact list and tap **SYNC SETTINGS**.
+2. Enter your email, password and server (`https://dav.mailbox.org/` is filled in). If your account uses two-factor sign-in, make an app password and use that.
+3. Rolodex finds your address books and syncs the main one. Tap others to sync them too. Turning a book off removes its contacts from the phone, not from the server.
+4. With more than one book, **NEW CONTACTS GO TO** picks where contacts made on the phone are saved.
+
+### How it syncs
+- **When:** right after you save, delete or import in Rolodex. Also when you open Rolodex (if the last sync was over 10 minutes ago), every hour in the background if Android allows it, and when you tap **SYNC NOW**.
+- **Both ways:** changes on the phone go up, and changes made elsewhere come down. If the same contact changed in both places, the merge goes kind by kind (phones, emails, addresses…). For each kind, the phone's version wins if you changed it there, and the server's is kept otherwise.
+- **Nothing extra is lost:** Rolodex only rewrites the parts of a contact it shows. Photos, groups/categories and fields it doesn't know stay on the server untouched. Photos aren't copied to the phone.
+- **Numbers the server can't hold stay on the phone.** mailbox.org runs Open-Xchange, which has fixed places for numbers: two mobile, two work, two home, one other, plus fax, pager, car and a few more. A third mobile number, or one with only a custom label, may be dropped. After every upload Rolodex reads the contact back. Anything the server didn't keep stays on the phone and is listed under **ONLY ON THIS PHONE** on the sync screen, and the list shows **SOME DETAILS ONLY ON THIS PHONE**. To move one onto the server, change its type in the editor (say, a third mobile to OTHER). The note clears once the server keeps it.
+- **If the account disappears** (something removes it, or Android drops it), Rolodex adds it back the next time it opens or syncs, and downloads your contacts again. Edits that hadn't synced yet are lost, so sync happens right after each save.
+- A problem shows as **SYNC PROBLEM** above the list. Tap it to see what went wrong.
+- **SIGN OUT** removes the account and its contacts from the phone. They stay on the server.
+
+### Moving from DAVx5
+Sign in to Rolodex and let it sync. Until you remove DAVx5, each contact is stored twice on the phone, but Rolodex shows it once. Then remove the address book in DAVx5, or uninstall DAVx5. The sync screen lists any other app still syncing contacts, with how many it holds.
+
+### Without Rolodex's sync
+If you're not signed in, Rolodex edits whatever already syncs your contacts:
 - **New contacts** are saved to the account that holds most of your contacts among those that sync back to a server. This is your main address book, not a phone-only contact.
 - **Merged contacts** often have copies from other apps such as WhatsApp and Signal/Molly. Rolodex writes new details to the main address book's copy, so the changes sync.
 - Duplicate copies of the same number or email are edited and removed together.
@@ -94,7 +114,7 @@ The Light SDK doesn't let tools read or write contacts: `READ_CONTACTS` isn't on
 
 ## Privacy
 
-Rolodex needs **Contacts** permission to read and edit contacts. It has **no internet permission**. Contact details only leave the phone when you share a contact, or through your own sync app.
+Rolodex needs **Contacts** permission to read and edit contacts, and **internet** permission for sync. It only connects to the server you sign in to, and only once you've signed in. Your password is stored on the phone, encrypted with a key kept in Android's Keystore. Otherwise, contact details only leave the phone when you share a contact.
 
 ## Build
 
@@ -108,13 +128,18 @@ You need **Android Studio**, or JDK 17+ and the Android SDK.
 
 The APK is written to `app\build\outputs\apk\debug\app-debug.apk`.
 
+### Testing sync
+
+- `gradlew.bat :app:testDebugUnitTest` checks how contacts turn into vCards and back, and how changes merge (`SyncCardTest.kt`).
+- `tools/MockCardDav.java` is a fake CardDAV server with made-up contacts. Run it with `java tools/MockCardDav.java`. Then, on the emulator, sign in with any email and password, and the server `http://10.0.2.2:5233/`. Debug builds allow plain http to that address only. Run it as `java tools/MockCardDav.java ox` to have it drop numbers the way Open-Xchange might.
+
 ## Install on the Light Phone III
 
 1. Download `Rolodex-<version>.apk` from the [latest release](https://github.com/jmsbrain/Rolodex/releases/latest), or [build it yourself](#build).
 2. On the phone, turn on Developer options and USB debugging, then connect it by USB.
 3. Install, or update over an existing install:
    ```bash
-   adb install -r Rolodex-1.6.0.apk
+   adb install -r Rolodex-2.0.0.apk
    ```
    Use the file name you downloaded. For your own build, it's `app\build\outputs\apk\debug\app-debug.apk`.
 3. Open Rolodex and allow Contacts access. If no prompt appears, grant it from the computer:
@@ -142,6 +167,7 @@ Versions follow **MAJOR.MINOR.PATCH**: MINOR goes up for new features, and PATCH
 
 | Version | Changes |
 |---|---|
+| 2.0.0 | Syncs with a CardDAV server by itself (no DAVx5): sign in, pick address books, two-way sync with merging |
 | 1.6.0 | Group text: TEXT picks several people, choosing which number for anyone with more than one |
 | 1.5.1 | Dropdowns open above their label when there's no room below; tidier name hints |
 | 1.5.0 | Answers other apps (add, edit, pick, quick contact, .vcf import); SHARE as text or .vcf |
@@ -168,4 +194,11 @@ app/src/main/kotlin/com/jms/fullcontacts/
   VCard.kt               reads .vcf files (vCard 2.1, 3.0, 4.0)
   LightStyle.kt          LightOS-like font, colors and text sizes
   LightOsBridge.kt       asks LightOS to open its own phone screen
+  SyncScreen.kt          sign-in, address books and sync status
+  SyncSettings.kt        the sign-in (password encrypted) and the Android account
+  CardSync.kt            two-way sync between the server and the phone
+  CardDav.kt             talks to the CardDAV server
+  SyncCard.kt            vCards to contact rows and back, and merging
+  SyncServices.kt        lets Android run syncs and list the account
+tools/MockCardDav.java   fake server for testing sync
 ```

@@ -96,7 +96,10 @@ fun ContactEditorScreen(
         mode = EditorMode.Busy
         scope.launch {
             withContext(Dispatchers.IO) { runCatching { activity.writer.save(o, d) } }
-                .onSuccess { onSaved(it ?: contactId) }
+                .onSuccess {
+                    CardSync.syncSoon(activity)
+                    onSaved(it ?: contactId)
+                }
                 .onFailure {
                     mode = EditorMode.Editing
                     error = "Couldn't save this contact."
@@ -110,6 +113,7 @@ fun ContactEditorScreen(
         scope.launch {
             val ok = withContext(Dispatchers.IO) { runCatching { activity.writer.delete(id) }.getOrDefault(false) }
             if (ok) {
+                CardSync.syncSoon(activity)
                 onDeleted()
             } else {
                 mode = EditorMode.Editing

@@ -160,12 +160,17 @@ data class ContactDraft(
 class ContactWriter(
     private val resolver: ContentResolver,
     private val res: Resources,
+    /** Rolodex's own sync account, when signed in. */
+    private val syncAccount: () -> android.accounts.Account? = { null },
 ) {
 
     private data class Account(val type: String?, val name: String?)
 
-    /** Biggest account that syncs back to a server (e.g. DAVx5); new data goes here. */
-    private val mainAccount: Account by lazy {
+    /** Rolodex's sync account if signed in; else the biggest account that syncs back to a server (e.g. DAVx5). New data goes here. */
+    private val mainAccount: Account
+        get() = syncAccount()?.let { Account(it.type, it.name) } ?: biggestSyncedAccount
+
+    private val biggestSyncedAccount: Account by lazy {
         val uploading = ContentResolver.getSyncAdapterTypes()
             .filter { it.authority == ContactsContract.AUTHORITY && it.supportsUploading() }
             .map { it.accountType }

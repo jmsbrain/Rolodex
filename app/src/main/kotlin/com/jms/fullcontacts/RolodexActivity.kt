@@ -50,7 +50,7 @@ abstract class RolodexActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         repository = ContactsRepository(contentResolver, resources)
-        writer = ContactWriter(contentResolver, resources)
+        writer = ContactWriter(contentResolver, resources) { SyncSettings.account(this) }
         hasPermission = checkPermission()
         hasWritePermission = canWrite()
     }

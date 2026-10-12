@@ -45,6 +45,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +67,8 @@ fun App(
     onPermissionResult: (Boolean) -> Unit,
     openContactId: Long? = null,
     onOpenContactConsumed: () -> Unit = {},
+    openSync: Boolean = false,
+    onOpenSyncConsumed: () -> Unit = {},
 ) {
     Box(
         Modifier
@@ -75,7 +78,7 @@ fun App(
             .imePadding()
     ) {
         if (hasPermission) {
-            MainContent(activity, refreshKey, openContactId, onOpenContactConsumed)
+            MainContent(activity, refreshKey, openContactId, onOpenContactConsumed, openSync, onOpenSyncConsumed)
         } else {
             PermissionScreen(activity, onPermissionResult)
         }
@@ -88,11 +91,21 @@ private fun MainContent(
     refreshKey: Int,
     openContactId: Long?,
     onOpenContactConsumed: () -> Unit,
+    openSync: Boolean,
+    onOpenSyncConsumed: () -> Unit,
 ) {
     var selectedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var editing by rememberSaveable { mutableStateOf(false) }
     var adding by rememberSaveable { mutableStateOf(false) }
     var texting by rememberSaveable { mutableStateOf(false) }
+    var syncing by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(openSync) {
+        if (openSync) {
+            syncing = true
+            onOpenSyncConsumed()
+        }
+    }
 
     // Opened from another app.
     LaunchedEffect(openContactId) {
@@ -101,6 +114,7 @@ private fun MainContent(
             editing = false
             adding = false
             texting = false
+            syncing = false
             onOpenContactConsumed()
         }
     }
@@ -108,9 +122,10 @@ private fun MainContent(
     val listState = rememberLazyListState()
     var contacts by remember { mutableStateOf<List<ContactSummary>?>(null) }
 
-    // Bumped on save/delete to reload.
+    // Bumped on save/delete to reload; a finished sync reloads too.
     var dataVersion by remember { mutableIntStateOf(0) }
-    val reloadKey = refreshKey + dataVersion
+    val syncState by CardSync.state.collectAsState()
+    val reloadKey = refreshKey + dataVersion + syncState.finished
 
     LaunchedEffect(reloadKey) {
         contacts = withContext(Dispatchers.IO) {
@@ -151,6 +166,7 @@ private fun MainContent(
 
     val id = selectedId
     when {
+        syncing -> SyncScreen(activity, onClose = { syncing = false })
         texting -> GroupTextScreen(activity, onClose = { texting = false })
         adding -> ContactEditorScreen(
             activity = activity,
@@ -186,6 +202,8 @@ private fun MainContent(
             onOpen = { selectedId = it },
             onAdd = { withWritePermission { adding = true } },
             onText = { texting = true },
+            footer = { SyncFooter(activity, syncState) { withWritePermission { syncing = true } } },
+            banner = syncBanner(activity, syncState)?.let { text -> { SyncProblem(text) { withWritePermission { syncing = true } } } },
         )
         else -> ContactDetailScreen(
             activity = activity,
@@ -250,6 +268,8 @@ fun ContactListScreen(
     onAdd: (() -> Unit)?,
     addLabel: String = "ADD",
     onText: (() -> Unit)? = null,
+    footer: (@Composable () -> Unit)? = null,
+    banner: (@Composable () -> Unit)? = null,
 ) {
     val filtered = remember(contacts, query) {
         val q = query.trim()
@@ -271,10 +291,14 @@ fun ContactListScreen(
             }
         }
         Spacer(Modifier.height(physicalInches(0.1f)))
+        banner?.invoke()
 
         when {
             contacts == null -> BasicText("Loading…", style = paragraphStyle().copy(color = LightStyle.secondary))
-            contacts.isEmpty() -> BasicText("No contacts on this phone.", style = paragraphStyle())
+            contacts.isEmpty() -> Column {
+                BasicText("No contacts on this phone.", style = paragraphStyle())
+                footer?.invoke()
+            }
             filtered.isEmpty() -> BasicText("No matches.", style = paragraphStyle().copy(color = LightStyle.secondary))
             else -> LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 items(filtered, key = { it.id }) { contact ->
@@ -288,6 +312,7 @@ fun ContactListScreen(
                             .padding(vertical = designDp(9f)),
                     )
                 }
+                if (footer != null) item { footer() }
                 item { Spacer(Modifier.height(designDp(40f))) }
             }
         }
@@ -514,4 +539,40 @@ fun TextButton(label: String, onClick: () -> Unit) {
             .flatClickable(onClick)
             .padding(vertical = designDp(6f)),
     )
+}
+
+/** Under the list: how syncing is going, and the way into its settings. */
+@Composable
+private fun SyncFooter(activity: RolodexActivity, state: SyncState, onOpen: () -> Unit) {
+    val signedIn = SyncSettings.signedIn(activity)
+    val error = if (signedIn) SyncSettings.lastError(activity) else null
+    Column(Modifier.padding(top = designDp(28f))) {
+        BasicText(
+            when {
+                !signedIn -> "NOT SYNCING WITH A SERVER"
+                state.running -> "SYNCING…"
+                error != null -> "SYNC PROBLEM"
+                else -> "SYNCING WITH ${SyncSettings.server(activity)?.substringAfter("://")?.trimEnd('/')?.uppercase().orEmpty()}"
+            },
+            style = labelStyle(),
+        )
+        TextButton("SYNC SETTINGS", onClick = onOpen)
+    }
+}
+
+@Composable
+private fun SyncProblem(text: String, onOpen: () -> Unit) {
+    BasicText(
+        text,
+        style = labelStyle().copy(color = LightStyle.content),
+        modifier = Modifier.flatClickable(onOpen).padding(bottom = designDp(12f)),
+    )
+}
+
+/** What needs attention above the list, if anything. */
+private fun syncBanner(activity: RolodexActivity, state: SyncState): String? = when {
+    state.running || !SyncSettings.signedIn(activity) -> null
+    SyncSettings.lastError(activity) != null -> "SYNC PROBLEM: TAP FOR DETAILS"
+    SyncSettings.notes(activity).isNotEmpty() -> "SOME DETAILS ONLY ON THIS PHONE: TAP"
+    else -> null
 }

@@ -15,6 +15,9 @@ class MainActivity : RolodexActivity() {
     /** Contact another app asked to show. */
     private var openContactId by mutableStateOf<Long?>(null)
 
+    /** Opened from the account settings: show sync. */
+    private var openSync by mutableStateOf(false)
+
     /** Link waiting on the contacts permission. */
     private var pendingContactUri: Uri? = null
 
@@ -28,6 +31,8 @@ class MainActivity : RolodexActivity() {
                 onPermissionResult = ::onPermissionResult,
                 openContactId = openContactId,
                 onOpenContactConsumed = { openContactId = null },
+                openSync = openSync,
+                onOpenSyncConsumed = { openSync = false },
             )
         }
         if (savedInstanceState == null) handleIntent(intent)
@@ -42,12 +47,14 @@ class MainActivity : RolodexActivity() {
     override fun onResume() {
         super.onResume()
         resolvePendingContact()
+        if (canWrite()) CardSync.syncIfStale(this)
     }
 
     override fun onPermissionChanged() = resolvePendingContact()
 
     /** VIEW / QUICK_CONTACT from another app: open that contact. */
     private fun handleIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_SYNC, false) == true) openSync = true
         val uri = intent?.data ?: return
         if (intent.action != Intent.ACTION_VIEW && intent.action != ContactsContract.QuickContact.ACTION_QUICK_CONTACT) return
         if (uri.authority != ContactsContract.AUTHORITY) return
@@ -62,5 +69,9 @@ class MainActivity : RolodexActivity() {
         if (id == null && !checkPermission()) return  // Retry after permission.
         pendingContactUri = null
         if (id != null && id >= 0) openContactId = id
+    }
+
+    companion object {
+        const val EXTRA_SYNC = "com.jms.fullcontacts.SYNC"
     }
 }
